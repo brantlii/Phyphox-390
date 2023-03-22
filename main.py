@@ -4,6 +4,7 @@ import os
 import h5py
 import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn import preprocessing
 
 
 def list_nodes_t(root_dir, n_type=None):
@@ -263,8 +264,8 @@ def accel_scatter_plots(root_dir, save=None):
             fig.suptitle(name)
             fig.canvas.manager.set_window_title(name)
 
-            axs = pd.plotting.scatter_matrix(df, ax=axs[0:16], grid=True, diagonal='hist',
-                                              marker='.', s=4)
+            axes = pd.plotting.scatter_matrix(df, ax=axs[0:16], grid=True, diagonal='hist',
+                                              marker='.', s=10)
 
             fig.tight_layout()
             figs.update({name.replace(".csv", "_scatter"): fig})
@@ -285,6 +286,61 @@ def accel_scatter_plots(root_dir, save=None):
     return figs
 
 
+def accel_fft_plots(root_dir, save=None):
+    figs = dict()
+    names = list_nodes_t(root_dir, 'd')
+
+    for name in names:
+        if name.split("_")[1] != 'data':
+            name2 = name.replace(".csv", "_FFT")
+            print("Dataset! " + "/" + name2)
+
+            data = np.array(root_dir[name])[:, 1:5]
+
+            size = data.shape[0]//2 + 1
+            new_data = np.zeros((size, data.shape[1]))
+
+            for i in range(data.shape[1]):
+                new_data[:, i] = np.fft.rfft(data[:, i])
+
+            fig = plt.figure(name2, figsize=(9.6, 5.4))
+            fig.suptitle(name2)
+            fig.canvas.manager.set_window_title(name2)
+
+            titles = ("Acceleration x FFT", "Acceleration y FFT", "Acceleration z FFT",
+                      "Abs Acceleration FFT")
+
+            s_rate = 100
+            t = 5000/s_rate
+            n = n = np.arange(size)
+            freq = n/t
+
+            for i, ti in enumerate(titles):
+                ax = fig.add_subplot(len(titles), 1, i + 1)
+                ax.stem(freq, np.abs(new_data[0:, i]), 'b', markerfmt=" ", basefmt="-b")
+                ax.grid(visible=True)
+                ax.set_title(ti, fontsize=8)
+                ax.set_xlabel('Mag', fontsize=8)
+                ax.set_ylabel('Freq', fontsize=8)
+
+            fig.tight_layout()
+            figs.update({name2: fig})
+
+            if save is not None:
+                # print(root_dir[name].parent.name)
+                temp = save / root_dir[name].parent.name[1:]
+                # print(temp)
+
+                if not os.path.exists(temp):
+                    temp.mkdir(parents=True, exist_ok=True)
+                    print("Made Directory: ", temp)
+
+                temp = save / name.replace(".csv", "_FFT.png")
+                plt.savefig(str(temp).replace("\\", "/"), dpi=200)
+
+    print("Returned figures: ", list(figs))
+    return figs
+
 
 # TESTING **************************************************************************************************************
 # These functions should be called from the loop below tho with commands
@@ -298,17 +354,19 @@ p = pth.Path("C:\\Users\\Chris\\PycharmProjects\\ELEC390_Project\\test_dir")
 p2 = pth.Path("C:\\Users\\Chris\\PycharmProjects\\ELEC390_Project\\Figures")
 
 accel_figures = dict()
+accel_FFT_figures = dict()
 accel_scatter_figures = dict()
+
 create_hdf5(p)
 with h5py.File('./hd5_data.h5', 'r') as hdf:
     print(list_nodes_t(hdf, 'd'))
 
 with h5py.File('./hd5_data.h5', 'r') as hdf:
     # accel_figures.update(create_accel_plots(hdf, p2))
-    plt.close('all')
-
-    accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
-
+    # plt.close('all')
+    # accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
+    # plt.close('all')
+    accel_FFT_figures.update(accel_fft_plots(hdf, p2))
 
 # TESTING **************************************************************************************************************
 

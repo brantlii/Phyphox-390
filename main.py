@@ -295,36 +295,34 @@ def accel_fft_plots(root_dir, save=None):
             name2 = name.replace(".csv", "_FFT")
             print("Dataset! " + "/" + name2)
 
+            fig = plt.figure(name2, figsize=(9.6, 5.4), dpi=200)
+            fig.suptitle(name2)
             data = np.array(root_dir[name])[:, 1:5]
 
-            size = data.shape[0]//2 + 1
-            new_data = np.zeros((size, data.shape[1]))
-
-            for i in range(data.shape[1]):
-                new_data[:, i] = np.fft.rfft(data[:, i])
-
-            fig = plt.figure(name2, figsize=(9.6, 5.4))
-            fig.suptitle(name2)
-            fig.canvas.manager.set_window_title(name2)
+            sampling_rate = 100
+            N = data.shape[0]//2 + 1
+            n = np.arange(N)
+            T = N/sampling_rate
+            freq = n / T
 
             titles = ("Acceleration x FFT", "Acceleration y FFT", "Acceleration z FFT",
                       "Abs Acceleration FFT")
 
-            s_rate = 100
-            t = 5000/s_rate
-            n = np.arange(size)
-            freq = n/t
-
             for ii, ti in enumerate(titles):
+                fft_data = np.fft.rfft(data[:, ii])
                 ax = fig.add_subplot(len(titles), 1, ii + 1)
-                ax.stem(freq, np.abs(new_data[0:, ii]), 'b', markerfmt=" ", basefmt="-b")
+                stem_plot = plt.stem(freq, np.abs(fft_data),  'b', markerfmt=" ", basefmt="-b")
+                stem_plot[0].set_linewidth(0.4)
+                stem_plot[1].set_linewidth(0.4)
+                stem_plot[2].set_linewidth(0.4)
+                ax.add_container(stem_plot)
                 ax.grid(visible=True)
                 ax.set_title(ti, fontsize=8)
                 ax.set_xlabel('Freq', fontsize=8)
                 ax.set_ylabel('Mag', fontsize=8)
-                ax.set_xlim((-1, 8))
+                ax.set_xlim((-1, 30))
 
-            fig.tight_layout()
+            fig.set_layout_engine(layout='tight')
             figs.update({name2: fig})
 
             if save is not None:
@@ -339,7 +337,7 @@ def accel_fft_plots(root_dir, save=None):
                 temp = save / name.replace(".csv", "_FFT.png")
                 plt.savefig(str(temp).replace("\\", "/"), dpi=200)
 
-    print("Returned figures: ", list(figs))
+    print("Returned FFT figures: ", list(figs))
     return figs
 
 
@@ -351,67 +349,65 @@ def accel_fft_plots(root_dir, save=None):
 # the directory tree with a test_dir folder and sub-folders for each group and a figures
 # folder or similar for saving figure images
 
-p = pth.Path("C:\\Users\\Chris\\PycharmProjects\\ELEC390_Project\\test_dir")
-p2 = pth.Path("C:\\Users\\Chris\\PycharmProjects\\ELEC390_Project\\Figures")
+p = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\test_dir")
+p2 = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\Figures")
 
 # accel_figures = dict()
-# accel_FFT_figures = dict()
+accel_FFT_figures = dict()
 # accel_scatter_figures = dict()
 #
-# create_hdf5(p)
-with h5py.File('./hd5_data.h5', 'r') as hdf:
-    print(list_nodes_t(hdf, 'd'))
+#create_hdf5(p)
 
-    d1 = hdf.get('brant/walking_back_pocket_brant.csv')
-    d1 = np.array(d1)
-
-    # print(d1)
-    print(np.transpose(d1[:, 1]))
-    d2 = np.convolve(d1[:, 1], np.ones(10)/10, mode='same')
-
-    fig1 = plt.figure()
-    ax1 = fig1.add_subplot(4,1, 1)
-    ax1.plot(d1[:, 0], d1[:, 1], linewidth=0.4)
-
-    d1_fft = np.fft.rfft(d1[:, 1])
-
-    size = d1[:, 1].shape[0] // 2 + 1
-    s_rate = 100
-    t = 5000 / s_rate
-    n = np.arange(size)
-    freq = n / t
-
-    ax2 = fig1.add_subplot(4, 1, 2)
-    ax2.stem(freq, np.abs(d1_fft), 'b', markerfmt=" ", basefmt="-b")
-    ax2.set_xlim((6, 12))
-    ax2.set_ylim((0, 2000))
-
-    ax3 = fig1.add_subplot(4, 1, 3)
-    ax3.plot(d1[:, 0], d2, linewidth=0.4)
-
-    d2_fft = np.fft.rfft(d2)
-
-    size = d2.shape[0] // 2 + 1
-    s_rate = 100
-    t = d2.shape[0] / s_rate
-    n = np.arange(size)
-    freq = n / t
-
-    ax4 = fig1.add_subplot(4, 1, 4)
-    ax4.stem(freq, np.abs(d2_fft), 'b', markerfmt=" ", basefmt="-b")
-    ax4.set_xlim((6, 12))
-    ax4.set_ylim((0, 2000))
-    plt.show()
-
-    # fig, ax = plt.subplots(1, 1, linewidth=0.4)
-    # ax.plot(np.transpose)
 # with h5py.File('./hd5_data.h5', 'r') as hdf:
+#     print(list_nodes_t(hdf, 'd'))
 #
+#     d1 = hdf.get('brant/walking_back_pocket_brant.csv')
+#     d1 = np.array(d1)
+#
+#     # print(d1)
+#     print(np.transpose(d1[:, 1]))
+#     d2 = np.convolve(d1[:, 1], np.ones(10)/10, mode='same')
+#
+#     fig1 = plt.figure()
+#     ax1 = fig1.add_subplot(4,1, 1)
+#     ax1.plot(d1[:, 0], d1[:, 1], linewidth=0.4)
+#
+#     d1_fft = np.fft.rfft(d1[:, 1])
+#
+#     size = d1[:, 1].shape[0] // 2 + 1
+#     s_rate = 100
+#     t = 5000 / s_rate
+#     n = np.arange(size)
+#     freq = n / t
+#
+#     ax2 = fig1.add_subplot(4, 1, 2)
+#     ax2.stem(freq, np.abs(d1_fft), 'b', markerfmt=" ", basefmt="-b")
+#     ax2.set_xlim((6, 12))
+#     ax2.set_ylim((0, 2000))
+#
+#     ax3 = fig1.add_subplot(4, 1, 3)
+#     ax3.plot(d1[:, 0], d2, linewidth=0.4)
+#
+#     d2_fft = np.fft.rfft(d2)
+#
+#     size = d2.shape[0] // 2 + 1
+#     s_rate = 100
+#     t = d2.shape[0] / s_rate
+#     n = np.arange(size)
+#     freq = n / t
+#
+#     ax4 = fig1.add_subplot(4, 1, 4)
+#     ax4.stem(freq, np.abs(d2_fft), 'b', markerfmt=" ", basefmt="-b")
+#     ax4.set_xlim((6, 12))
+#     ax4.set_ylim((0, 2000))
+#     plt.show()
+
+with h5py.File('./hd5_data.h5', 'r') as hdf:
     # accel_figures.update(create_accel_plots(hdf, p2))
     # plt.close('all')
     # accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
     # plt.close('all')
-    # accel_FFT_figures.update(accel_fft_plots(hdf, p2))
+    accel_FFT_figures.update(accel_fft_plots(hdf, p2))
 
 
 

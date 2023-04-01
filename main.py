@@ -89,7 +89,6 @@ def truncate(root_dir, dname, t_size, t_dir):
 
 def down_sample(arr, rate):
     # Given a numpy array keep 1 out of every X rows
-
     d1 = []
 
     if not isinstance(rate, int):
@@ -99,18 +98,24 @@ def down_sample(arr, rate):
     return d1
 
 
-def reformat(file, data):
-    if file.partition("_")[0] == 'jumping':
-        action = np.ones((data.shape[0], 1))
-    else:
-        action = np.zeros((data.shape[0], 1))
-
-    data = np.concatenate((data, action), axis=1)
-
+def pre_process(file, data_in, window_size):
     if file.split("_")[-1] == 'chris.csv':
-        data = down_sample(data, 5)
+        data_in = down_sample(data_in, 5)
 
-    return data
+    rows = data_in.shape[0] - window_size + 1
+    cols = data_in.shape[1]
+    data_out = np.zeros((rows, cols))
+    data_out[:, 0] = data_in[0:rows, 0]
+
+    for ii in range(cols - 1):
+        data_out[:, ii + 1] = np.convolve(data_in[:, ii + 1], np.ones(window_size)/window_size, mode='valid')
+
+    if file.partition("_")[0] == 'jumping':
+        data_out = np.concatenate((data_out, np.ones((rows, 1))), axis=1)
+    else:
+        data_out = np.concatenate((data_out, np.zeros((rows, 1))), axis=1)
+
+    return data_out
 
 
 def overwrite_needed(dataset_name, datasets):
@@ -156,7 +161,7 @@ def create_hdf5(path):
                 dataset_name = root[len(str(path)):].replace("\\", "/") + "/" + file
 
                 data = np.genfromtxt(os.path.join(root, file), skip_header=1, delimiter=',')
-                data = reformat(file, data)
+                data = pre_process(file, data, window)
 
                 if size == 0:
                     size = data.shape[0]
@@ -184,15 +189,7 @@ def create_hdf5(path):
         for key, value in data_reformatted.items():
             data_reformatted[key] = data_reformatted[key][0:size]
             data = data_reformatted[key]
-            temp = np.zeros((data.shape[0] - (window-1), data.shape[1]))
-            temp[:, 0] = data[0:data.shape[0] - (window-1),0]
-            temp[:, 5] = data[0:data.shape[0] - (window-1), 5]
-            for ii in range(data.shape[1] - 2):
-                temp[:,ii + 1] = np.convolve(data[:, ii + 1], np.ones(window)/window, mode='valid')
-            even_size = temp.shape[0] // 10 * 10
-            temp = temp[0:even_size,:]
-            print(temp.shape)
-            hdf.create_dataset(key, data=temp)
+            hdf.create_dataset(key, data=data)
 
         for name, grp in hdf.items():
             if name != 'dataset':
@@ -309,9 +306,9 @@ def accel_fft_plots(root_dir, save=None):
             data = np.array(root_dir[name])[:, 1:5]
 
             sampling_rate = 100
-            N = data.shape[0]//2 + 1
+            N = data.shape[0] // 2 + 1
             n = np.arange(N)
-            T = N/sampling_rate
+            T = N / sampling_rate
             freq = n / T
 
             titles = ("Acceleration x FFT", "Acceleration y FFT", "Acceleration z FFT",
@@ -320,7 +317,7 @@ def accel_fft_plots(root_dir, save=None):
             for ii, ti in enumerate(titles):
                 fft_data = np.fft.rfft(data[:, ii])
                 ax = fig.add_subplot(len(titles), 1, ii + 1)
-                stem_plot = plt.stem(freq, np.abs(fft_data),  'b', markerfmt=" ", basefmt="-b")
+                stem_plot = plt.stem(freq, np.abs(fft_data), 'b', markerfmt=" ", basefmt="-b")
                 stem_plot[0].set_linewidth(0.4)
                 stem_plot[1].set_linewidth(0.4)
                 stem_plot[2].set_linewidth(0.4)
@@ -417,8 +414,6 @@ with h5py.File('./hd5_data.h5', 'r') as hdf:
     accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
     plt.close('all')
     accel_FFT_figures.update(accel_fft_plots(hdf, p2))
-
-
 
 # TESTING **************************************************************************************************************
 

@@ -139,6 +139,7 @@ def create_hdf5(path):
         # datasets.add('/chris/walking_hand_chris.csv')
         # hdf.create_dataset('/chris/walking_hand_chris.csv', data=testdata)
         size = 0
+        window = 10
         data_reformatted = dict()
 
         for root, dirs, files in os.walk(path):
@@ -166,6 +167,7 @@ def create_hdf5(path):
                 # print(dataset_name)
 
                 t = overwrite_needed(dataset_name, datasets)
+
                 match t:
                     case 'n':
                         datasets.add(dataset_name)
@@ -180,9 +182,16 @@ def create_hdf5(path):
 
         # print(list(data_reformatted.keys()))
         for key, value in data_reformatted.items():
-            temp = value[0:size]
-            data_reformatted[key] = temp
-            # print(temp.shape)
+            data_reformatted[key] = data_reformatted[key][0:size]
+            data = data_reformatted[key]
+            temp = np.zeros((data.shape[0] - (window-1), data.shape[1]))
+            temp[:, 0] = data[0:data.shape[0] - (window-1),0]
+            temp[:, 5] = data[0:data.shape[0] - (window-1), 5]
+            for ii in range(data.shape[1] - 2):
+                temp[:,ii + 1] = np.convolve(data[:, ii + 1], np.ones(window)/window, mode='valid')
+            even_size = temp.shape[0] // 10 * 10
+            temp = temp[0:even_size,:]
+            print(temp.shape)
             hdf.create_dataset(key, data=temp)
 
         for name, grp in hdf.items():
@@ -190,7 +199,7 @@ def create_hdf5(path):
                 fdata_name = name + "_data"
                 # print(fdata_name)
                 t_data = np.hstack(
-                    [arr.reshape((size // 10), 1, 6) for data in grp.values() for arr in np.array_split(data, 10)])
+                    [arr.reshape(arr.shape[0], 1, 6) for data in grp.values() for arr in np.array_split(data, 10)])
                 grp.create_dataset(fdata_name, data=t_data)
 
                 # for old_data in grp.keys():
@@ -352,11 +361,11 @@ def accel_fft_plots(root_dir, save=None):
 p = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\test_dir")
 p2 = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\Figures")
 
-# accel_figures = dict()
+accel_figures = dict()
 accel_FFT_figures = dict()
-# accel_scatter_figures = dict()
-#
-#create_hdf5(p)
+accel_scatter_figures = dict()
+
+create_hdf5(p)
 
 # with h5py.File('./hd5_data.h5', 'r') as hdf:
 #     print(list_nodes_t(hdf, 'd'))
@@ -403,10 +412,10 @@ accel_FFT_figures = dict()
 #     plt.show()
 
 with h5py.File('./hd5_data.h5', 'r') as hdf:
-    # accel_figures.update(create_accel_plots(hdf, p2))
-    # plt.close('all')
-    # accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
-    # plt.close('all')
+    accel_figures.update(create_accel_plots(hdf, p2))
+    plt.close('all')
+    accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
+    plt.close('all')
     accel_FFT_figures.update(accel_fft_plots(hdf, p2))
 
 

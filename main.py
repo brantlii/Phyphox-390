@@ -408,10 +408,14 @@ def test_train(root_dir, save=None):
         features.to_csv(save, index=False)
 
     x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.1, shuffle=True, random_state=0)
-    # root_dir.create_dataset('dataset/train/x_train', data=x_train)
-    # root_dir.create_dataset('dataset/train/y_train', data=y_train)
-    # root_dir.create_dataset('dataset/test/x_test', data=x_test)
-    # root_dir.create_dataset('dataset/test/y_test', data=y_test)
+    dsets = ['dataset/train/x_train', 'dataset/test/x_test', 'dataset/train/y_train', 'dataset/test/y_test']
+
+    for dset, dat in zip(dsets, [x_train, x_test, y_train, y_test]):
+        if dset in root_dir:
+            del root_dir[dset]
+            root_dir.create_dataset(dset, data=dat)
+        else:
+            root_dir.create_dataset(dset, data=dat)
 
     return x_train, x_test, y_train, y_test
 

@@ -412,8 +412,12 @@ def test_train(root_dir, save=None):
 
     for dset, dat in zip(dsets, [x_train, x_test, y_train, y_test]):
         if dset in root_dir:
-            del root_dir[dset]
-            root_dir.create_dataset(dset, data=dat)
+            msg = "Dataset " + dset + " already exist. Overwrite? [y/n] "
+            if input(msg) == 'Y' or 'y':
+                del root_dir[dset]
+                root_dir.create_dataset(dset, data=dat)
+            else:
+                pass
         else:
             root_dir.create_dataset(dset, data=dat)
 

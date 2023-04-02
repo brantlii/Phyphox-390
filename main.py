@@ -4,7 +4,13 @@ import os
 import h5py
 import matplotlib.pyplot as plt
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, roc_curve, \
+    RocCurveDisplay, roc_auc_score
+from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def list_nodes_t(root_dir, n_type=None):
@@ -96,6 +102,30 @@ def down_sample(arr, rate):
     else:
         d1 = arr[0::rate]
     return d1
+
+
+def vec_seg1(array, sub_window_size,
+                         overlap=0, clearing_time_index=None, max_time=None):
+
+    if clearing_time_index == None:
+        clearing_time_index = sub_window_size
+
+    if max_time == None:
+        max_time = array.shape[0]
+
+    stride_size = int(((1 - overlap) * sub_window_size) // 1)
+    # print(stride_size)
+    start = clearing_time_index - sub_window_size
+
+    sub_windows = (
+            start +
+            np.expand_dims(np.arange(sub_window_size), 0) +
+            # Create a rightmost vector as [0, V, 2V, ...].
+            np.expand_dims(np.arange(max_time - sub_window_size + 1, step=stride_size), 0).T
+    )
+
+    # Adapted from the work of Syafiq Kamarul Azman, Towards Data Science
+    return array[sub_windows]
 
 
 def pre_process(file, data_in, window_size):
@@ -195,8 +225,8 @@ def create_hdf5(path):
             if name != 'dataset':
                 fdata_name = name + "_data"
                 # print(fdata_name)
-                t_data = np.hstack(
-                    [arr.reshape(arr.shape[0], 1, 6) for data in grp.values() for arr in np.array_split(data, 10)])
+                t_data = np.vstack([vec_seg1(np.array(data), 500, 0.4) for data in grp.values()])
+                print(fdata_name, ": ", t_data.shape)
                 grp.create_dataset(fdata_name, data=t_data)
 
                 # for old_data in grp.keys():
@@ -346,6 +376,44 @@ def accel_fft_plots(root_dir, save=None):
     print("Returned FFT figures: ", list(figs))
     return figs
 
+def test_train(root_dir, save=None):
+    names = list_nodes_t(root_dir, 'd')
+    raw_data = np.vstack([root_dir[name] for name in names if (name.split('_')[-1] == 'data')])
+    raw_data = raw_data[:, :, 1:6]
+    features = pd.DataFrame(columns=['meanx', 'meany', 'meanz', 'medianx', 'mediany', 'medianz', 'varx', 'vary', 'varz', 'action'])
+
+    features['meanx'] = np.mean(np.mean(vec_seg1(raw_data[:, :, 0].T, 50), 1), 0)
+    features['meany'] = np.mean(np.mean(vec_seg1(raw_data[:, :, 1].T, 50), 1), 0)
+    features['meanz'] = np.mean(np.mean(vec_seg1(raw_data[:, :, 2].T, 50), 1), 0)
+
+    features['medianx'] = np.mean(np.median(vec_seg1(raw_data[:, :, 0].T, 50), 1), 0)
+    features['mediany'] = np.mean(np.median(vec_seg1(raw_data[:, :, 1].T, 50), 1), 0)
+    features['medianz'] = np.mean(np.median(vec_seg1(raw_data[:, :, 2].T, 50), 1), 0)
+
+    features['varx'] = np.mean(np.var(vec_seg1(raw_data[:, :, 0].T, 50), 1), 0)
+    features['vary'] = np.mean(np.var(vec_seg1(raw_data[:, :, 1].T, 50), 1), 0)
+    features['varz'] = np.mean(np.var(vec_seg1(raw_data[:, :, 2].T, 50), 1), 0)
+
+    features['action'] = raw_data[:, 1, 4]
+
+    data = features.iloc[:, 1:-1]
+    labels = features.iloc[:, -1]
+
+    if save is not None:
+        if not os.path.exists(save):
+            save.mkdir(parents=True, exist_ok=True)
+            print("Made Directory: ", temp)
+
+        save = save / 'features.csv'
+        features.to_csv(save, index=False)
+
+    x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.1, shuffle=True, random_state=0)
+    # root_dir.create_dataset('dataset/train/x_train', data=x_train)
+    # root_dir.create_dataset('dataset/train/y_train', data=y_train)
+    # root_dir.create_dataset('dataset/test/x_test', data=x_test)
+    # root_dir.create_dataset('dataset/test/y_test', data=y_test)
+
+    return x_train, x_test, y_train, y_test
 
 # TESTING **************************************************************************************************************
 # These functions should be called from the loop below tho with commands
@@ -357,63 +425,58 @@ def accel_fft_plots(root_dir, save=None):
 
 p = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\test_dir")
 p2 = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\Figures")
+p3 = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\Features")
 
 accel_figures = dict()
 accel_FFT_figures = dict()
 accel_scatter_figures = dict()
 
-create_hdf5(p)
+# create_hdf5(p)
+
+with h5py.File('./hd5_data.h5', 'r+') as hdf:
+    x_train, x_test, y_train, y_test = test_train(hdf, p3)
+
+scaler = StandardScaler()
+
+l_reg = LogisticRegression(max_iter=10000)
+clf = make_pipeline(StandardScaler(), l_reg)
+clf.fit(x_train, y_train)
+
+# Testing the Model
+y_pred = clf.predict(x_test)
+y_clf_prob = clf.predict_proba(x_test)
+
+# Model Accuracy
+acc = accuracy_score(y_test, y_pred)
+print('Model Accuracy: ', acc)
+
+# Confusion Matrix Visualization
+cm = confusion_matrix(y_test, y_pred)
+cm_disp = ConfusionMatrixDisplay(cm).plot()
+plt.title('Wine Quality Classifier Confusion Matrix')
+plt.show()
+
+# F1 Score
+f1 = f1_score(y_test, y_pred)
+print('Model F1_Score: ', f1)
+
+# ROC and AUC
+fp_rate, tp_rate, _ = roc_curve(y_test, y_clf_prob[:, 1], pos_label=clf.classes_[1])
+roc_disp = RocCurveDisplay(fpr=fp_rate, tpr=tp_rate).plot()
+plt.title('Wine Quality Classifier ROC Curve')
+plt.show()
+
+auc = roc_auc_score(y_test, y_clf_prob[:, 1])
+print('Model AUC: ', auc)
 
 # with h5py.File('./hd5_data.h5', 'r') as hdf:
-#     print(list_nodes_t(hdf, 'd'))
-#
-#     d1 = hdf.get('brant/walking_back_pocket_brant.csv')
-#     d1 = np.array(d1)
-#
-#     # print(d1)
-#     print(np.transpose(d1[:, 1]))
-#     d2 = np.convolve(d1[:, 1], np.ones(10)/10, mode='same')
-#
-#     fig1 = plt.figure()
-#     ax1 = fig1.add_subplot(4,1, 1)
-#     ax1.plot(d1[:, 0], d1[:, 1], linewidth=0.4)
-#
-#     d1_fft = np.fft.rfft(d1[:, 1])
-#
-#     size = d1[:, 1].shape[0] // 2 + 1
-#     s_rate = 100
-#     t = 5000 / s_rate
-#     n = np.arange(size)
-#     freq = n / t
-#
-#     ax2 = fig1.add_subplot(4, 1, 2)
-#     ax2.stem(freq, np.abs(d1_fft), 'b', markerfmt=" ", basefmt="-b")
-#     ax2.set_xlim((6, 12))
-#     ax2.set_ylim((0, 2000))
-#
-#     ax3 = fig1.add_subplot(4, 1, 3)
-#     ax3.plot(d1[:, 0], d2, linewidth=0.4)
-#
-#     d2_fft = np.fft.rfft(d2)
-#
-#     size = d2.shape[0] // 2 + 1
-#     s_rate = 100
-#     t = d2.shape[0] / s_rate
-#     n = np.arange(size)
-#     freq = n / t
-#
-#     ax4 = fig1.add_subplot(4, 1, 4)
-#     ax4.stem(freq, np.abs(d2_fft), 'b', markerfmt=" ", basefmt="-b")
-#     ax4.set_xlim((6, 12))
-#     ax4.set_ylim((0, 2000))
-#     plt.show()
+#     accel_figures.update(create_accel_plots(hdf, p2))
+#     plt.close('all')
+#     accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
+#     plt.close('all')
+#     accel_FFT_figures.update(accel_fft_plots(hdf, p2))
 
-with h5py.File('./hd5_data.h5', 'r') as hdf:
-    accel_figures.update(create_accel_plots(hdf, p2))
-    plt.close('all')
-    accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
-    plt.close('all')
-    accel_FFT_figures.update(accel_fft_plots(hdf, p2))
+
 
 # TESTING **************************************************************************************************************
 

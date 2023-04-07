@@ -87,11 +87,8 @@ def truncate(root_dir, dname, t_size, t_dir):
         else:
             print("Please specify a truncation direction with the argument 'rows' or 'cols'")
 
-        del root_dir[dname]
-        root_dir.create_dataset(dname, data=d1)
     else:
         print("Please specify an integer truncation size")
-
 
 def down_sample(arr, rate):
     # Given a numpy array keep 1 out of every X rows
@@ -105,8 +102,7 @@ def down_sample(arr, rate):
 
 
 def vec_seg1(array, sub_window_size,
-                         overlap=0, clearing_time_index=None, max_time=None):
-
+             overlap: float = 0, clearing_time_index=None, max_time=None, verbose=False):
     if clearing_time_index == None:
         clearing_time_index = sub_window_size
 
@@ -123,27 +119,44 @@ def vec_seg1(array, sub_window_size,
             # Create a rightmost vector as [0, V, 2V, ...].
             np.expand_dims(np.arange(max_time - sub_window_size + 1, step=stride_size), 0).T
     )
+    if verbose is True:
+        lost = (array.shape[0] - sub_windows[-1, -1] - 1) / array.shape[0]
+        print("Last valid index: ", sub_windows[-1, -1])
+        print("Data loss due to segmentation: ", lost)
 
     # Adapted from the work of Syafiq Kamarul Azman, Towards Data Science
     return array[sub_windows]
 
 
-def pre_process(file, data_in, window_size):
-    if file.split("_")[-1] == 'chris.csv':
-        data_in = down_sample(data_in, 5)
+def pre_process(file, data_in, window_size, first='downsample'):
+    if first == 'sma':
+        rows = data_in.shape[0] - window_size + 1
+        cols = data_in.shape[1]
+        data_out = np.zeros((rows, cols))
+        data_out[:, 0] = data_in[0:rows, 0]
 
-    rows = data_in.shape[0] - window_size + 1
-    cols = data_in.shape[1]
-    data_out = np.zeros((rows, cols))
-    data_out[:, 0] = data_in[0:rows, 0]
+        for ii in range(cols - 1):
+            data_out[:, ii + 1] = np.convolve(data_in[:, ii + 1], np.ones(window_size) / window_size, mode='valid')
 
-    for ii in range(cols - 1):
-        data_out[:, ii + 1] = np.convolve(data_in[:, ii + 1], np.ones(window_size)/window_size, mode='valid')
+        if file.split("_")[-1] == 'chris.csv':
+            data_out = down_sample(data_out, 5)
+
+    else:
+        if file.split("_")[-1] == 'chris.csv':
+            data_in = down_sample(data_in, 5)
+
+        rows = data_in.shape[0] - window_size + 1
+        cols = data_in.shape[1]
+        data_out = np.zeros((rows, cols))
+        data_out[:, 0] = data_in[0:rows, 0]
+
+        for ii in range(cols - 1):
+            data_out[:, ii + 1] = np.convolve(data_in[:, ii + 1], np.ones(window_size) / window_size, mode='valid')
 
     if file.partition("_")[0] == 'jumping':
-        data_out = np.concatenate((data_out, np.ones((rows, 1))), axis=1)
+        data_out = np.concatenate((data_out, np.ones((data_out.shape[0], 1))), axis=1)
     else:
-        data_out = np.concatenate((data_out, np.zeros((rows, 1))), axis=1)
+        data_out = np.concatenate((data_out, np.zeros((data_out.shape[0], 1))), axis=1)
 
     return data_out
 
@@ -225,13 +238,36 @@ def create_hdf5(path):
             if name != 'dataset':
                 fdata_name = name + "_data"
                 # print(fdata_name)
-                t_data = np.vstack([vec_seg1(np.array(data), 500, 0.4) for data in grp.values()])
+                t_data = np.vstack([vec_seg1(np.array(data), 500, 0.35, verbose=True) for data in grp.values()])
                 print(fdata_name, ": ", t_data.shape)
                 grp.create_dataset(fdata_name, data=t_data)
 
                 # for old_data in grp.keys():
                 #     if old_data != fdata_name:
                 #         del grp[old_data]
+
+        names = list_nodes_t(hdf, 'd')
+        raw_data = np.vstack([hdf[name] for name in names if (name.split('_')[-1] == 'data')])
+        raw_data = raw_data[:, :, 1:6]
+        input_train, input_test, output_train, output_test = train_test_split(raw_data[:, :, 0:5], raw_data[:, 0, -1], test_size=0.1,
+                                                            shuffle=True, random_state=0)
+        print(input_train.shape)
+        print(input_test.shape)
+        print(output_train.shape)
+        print(output_test.shape)
+
+        dsets = ['dataset/train/input_train', 'dataset/test/input_test', 'dataset/train/output_train', 'dataset/test/output_test']
+
+        for dset, dat in zip(dsets, [input_train, input_test, output_train, output_test]):
+            if dset in hdf:
+                msg = "Dataset " + dset + " already exist. Overwrite? [y/n] "
+                if input(msg) == 'Y' or 'y':
+                    del hdf[dset]
+                    hdf.create_dataset(dset, data=dat)
+                else:
+                    pass
+            else:
+                hdf.create_dataset(dset, data=dat)
 
         print("Created HDF file with the following groups: ", list(hdf.items()), "\n")
 
@@ -376,52 +412,58 @@ def accel_fft_plots(root_dir, save=None):
     print("Returned FFT figures: ", list(figs))
     return figs
 
+
 def test_train(root_dir, save=None):
-    names = list_nodes_t(root_dir, 'd')
-    raw_data = np.vstack([root_dir[name] for name in names if (name.split('_')[-1] == 'data')])
-    raw_data = raw_data[:, :, 1:6]
-    features = pd.DataFrame(columns=['meanx', 'meany', 'meanz', 'medianx', 'mediany', 'medianz', 'varx', 'vary', 'varz', 'action'])
+    input_train = np.array(root_dir['/dataset/train/input_train'])
+    input_test = np.array(root_dir['/dataset/test/input_test'])
+    output_train = np.array(root_dir['/dataset/train/output_train'])
+    output_test = np.array(root_dir['/dataset/test/output_test'])
 
-    features['meanx'] = np.mean(np.mean(vec_seg1(raw_data[:, :, 0].T, 50), 1), 0)
-    features['meany'] = np.mean(np.mean(vec_seg1(raw_data[:, :, 1].T, 50), 1), 0)
-    features['meanz'] = np.mean(np.mean(vec_seg1(raw_data[:, :, 2].T, 50), 1), 0)
+    features_train = pd.DataFrame(
+        columns=['meanx', 'meany', 'meanz', 'medianx', 'mediany', 'medianz', 'varx', 'vary', 'varz'])
+    features_test = pd.DataFrame(
+        columns=['meanx', 'meany', 'meanz', 'medianx', 'mediany', 'medianz', 'varx', 'vary', 'varz'])
 
-    features['medianx'] = np.mean(np.median(vec_seg1(raw_data[:, :, 0].T, 50), 1), 0)
-    features['mediany'] = np.mean(np.median(vec_seg1(raw_data[:, :, 1].T, 50), 1), 0)
-    features['medianz'] = np.mean(np.median(vec_seg1(raw_data[:, :, 2].T, 50), 1), 0)
+    features_train['meanx'] = np.mean(np.mean(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
+    features_train['meany'] = np.mean(np.mean(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
+    features_train['meanz'] = np.mean(np.mean(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
 
-    features['varx'] = np.mean(np.var(vec_seg1(raw_data[:, :, 0].T, 50), 1), 0)
-    features['vary'] = np.mean(np.var(vec_seg1(raw_data[:, :, 1].T, 50), 1), 0)
-    features['varz'] = np.mean(np.var(vec_seg1(raw_data[:, :, 2].T, 50), 1), 0)
+    features_train['medianx'] = np.mean(np.median(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
+    features_train['mediany'] = np.mean(np.median(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
+    features_train['medianz'] = np.mean(np.median(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
 
-    features['action'] = raw_data[:, 1, 4]
+    features_train['varx'] = np.mean(np.var(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
+    features_train['vary'] = np.mean(np.var(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
+    features_train['varz'] = np.mean(np.var(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
 
-    data = features.iloc[:, 1:-1]
-    labels = features.iloc[:, -1]
+    features_test['meanx'] = np.mean(np.mean(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
+    features_test['meany'] = np.mean(np.mean(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
+    features_test['meanz'] = np.mean(np.mean(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
+
+    features_test['medianx'] = np.mean(np.median(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
+    features_test['mediany'] = np.mean(np.median(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
+    features_test['medianz'] = np.mean(np.median(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
+
+    features_test['varx'] = np.mean(np.var(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
+    features_test['vary'] = np.mean(np.var(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
+    features_test['varz'] = np.mean(np.var(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
 
     if save is not None:
         if not os.path.exists(save):
             save.mkdir(parents=True, exist_ok=True)
-            print("Made Directory: ", temp)
+            print("Made Directory: ", save)
 
-        save = save / 'features.csv'
-        features.to_csv(save, index=False)
+        save_train = save / 'features_train.csv'
+        features_train.to_csv(save_train, index=False)
 
-    x_train, x_test, y_train, y_test = train_test_split(data, labels, test_size=0.1, shuffle=True, random_state=0)
-    dsets = ['dataset/train/x_train', 'dataset/test/x_test', 'dataset/train/y_train', 'dataset/test/y_test']
+        save_test = save / 'features_test.csv'
+        features_test.to_csv(save_test, index=False)
+    print(features_train.shape)
+    print(features_test.shape)
+    print(output_train.shape)
+    print(output_test.shape)
+    return features_train, features_test, output_train, output_test
 
-    for dset, dat in zip(dsets, [x_train, x_test, y_train, y_test]):
-        if dset in root_dir:
-            msg = "Dataset " + dset + " already exist. Overwrite? [y/n] "
-            if input(msg) == 'Y' or 'y':
-                del root_dir[dset]
-                root_dir.create_dataset(dset, data=dat)
-            else:
-                pass
-        else:
-            root_dir.create_dataset(dset, data=dat)
-
-    return x_train, x_test, y_train, y_test
 
 # TESTING **************************************************************************************************************
 # These functions should be called from the loop below tho with commands
@@ -439,7 +481,7 @@ accel_figures = dict()
 accel_FFT_figures = dict()
 accel_scatter_figures = dict()
 
-# create_hdf5(p)
+create_hdf5(p)
 
 with h5py.File('./hd5_data.h5', 'r+') as hdf:
     x_train, x_test, y_train, y_test = test_train(hdf, p3)
@@ -483,7 +525,6 @@ print('Model AUC: ', auc)
 #     accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
 #     plt.close('all')
 #     accel_FFT_figures.update(accel_fft_plots(hdf, p2))
-
 
 
 # TESTING **************************************************************************************************************

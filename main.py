@@ -249,8 +249,8 @@ def create_hdf5(path):
         names = list_nodes_t(hdf, 'd')
         raw_data = np.vstack([hdf[name] for name in names if (name.split('_')[-1] == 'data')])
         raw_data = raw_data[:, :, 1:6]
-        input_train, input_test, output_train, output_test = train_test_split(raw_data[:, :, 0:5], raw_data[:, 0, -1], test_size=0.1,
-                                                            shuffle=True, random_state=0)
+        input_train, input_test, output_train, output_test = train_test_split(raw_data[:, :, 0:5], raw_data[:, 0, -1],
+                                                                              test_size=0.1, shuffle=True, random_state=0)
         print(input_train.shape)
         print(input_test.shape)
         print(output_train.shape)
@@ -276,8 +276,9 @@ def create_accel_plots(root_dir, save=None):
     figs = dict()
     names = list_nodes_t(root_dir, 'd')
 
+    ignore = ['data', 'dataset']
     for name in names:
-        if name.split("_")[1] != 'data':
+        if name.split("_")[1] not in ignore and name.split('/')[0] not in ignore:
             print("Dataset! " + "/" + name)
 
             data = np.array(root_dir[name])
@@ -323,8 +324,9 @@ def accel_scatter_plots(root_dir, save=None):
     figs = dict()
     names = list_nodes_t(root_dir, 'd')
 
+    ignore = ['data', 'dataset']
     for name in names:
-        if name.split("_")[1] != 'data':
+        if name.split("_")[1] not in ignore and name.split('/')[0] not in ignore:
             print("Dataset! " + "/" + name)
             data = np.array(root_dir[name])[:, 1:5]
             df = pd.DataFrame(data, columns=['Acceleration x (m/s^2)',
@@ -339,7 +341,7 @@ def accel_scatter_plots(root_dir, save=None):
             axes = pd.plotting.scatter_matrix(df, ax=axs[0:16], grid=True, diagonal='hist',
                                               marker='.', s=10)
 
-            fig.tight_layout()
+            fig.set_layout_engine(layout='tight')
             figs.update({name.replace(".csv", "_scatter"): fig})
 
             if save is not None:
@@ -362,8 +364,9 @@ def accel_fft_plots(root_dir, save=None):
     figs = dict()
     names = list_nodes_t(root_dir, 'd')
 
+    ignore = ['data', 'dataset']
     for name in names:
-        if name.split("_")[1] != 'data':
+        if name.split("_")[1] not in ignore and name.split('/')[0] not in ignore:
             name2 = name.replace(".csv", "_FFT")
             print("Dataset! " + "/" + name2)
 
@@ -483,6 +486,15 @@ accel_scatter_figures = dict()
 
 create_hdf5(p)
 
+with h5py.File('./hd5_data.h5', 'r') as hdf:
+    accel_figures.update(create_accel_plots(hdf, p2))
+    plt.close('all')
+    accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
+    plt.close('all')
+    accel_FFT_figures.update(accel_fft_plots(hdf, p2))
+    plt.close('all')
+
+
 with h5py.File('./hd5_data.h5', 'r+') as hdf:
     x_train, x_test, y_train, y_test = test_train(hdf, p3)
 
@@ -518,14 +530,6 @@ plt.show()
 
 auc = roc_auc_score(y_test, y_clf_prob[:, 1])
 print('Model AUC: ', auc)
-
-# with h5py.File('./hd5_data.h5', 'r') as hdf:
-#     accel_figures.update(create_accel_plots(hdf, p2))
-#     plt.close('all')
-#     accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
-#     plt.close('all')
-#     accel_FFT_figures.update(accel_fft_plots(hdf, p2))
-
 
 # TESTING **************************************************************************************************************
 

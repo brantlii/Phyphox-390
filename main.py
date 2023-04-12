@@ -90,6 +90,7 @@ def truncate(root_dir, dname, t_size, t_dir):
     else:
         print("Please specify an integer truncation size")
 
+
 def down_sample(arr, rate):
     # Given a numpy array keep 1 out of every X rows
     d1 = []
@@ -103,10 +104,10 @@ def down_sample(arr, rate):
 
 def vec_seg1(array, sub_window_size,
              overlap: float = 0, clearing_time_index=None, max_time=None, verbose=False):
-    if clearing_time_index == None:
+    if clearing_time_index is None:
         clearing_time_index = sub_window_size
 
-    if max_time == None:
+    if max_time is None:
         max_time = array.shape[0]
 
     stride_size = int(((1 - overlap) * sub_window_size) // 1)
@@ -173,7 +174,7 @@ def overwrite_needed(dataset_name, datasets):
     return ret
 
 
-def create_hdf5(path):
+def create_hdf5(path, verbose=False):
     # Given a path to a root directory, creates groups for every folder and subfolder and creates datasets for every csv
     # Saves the hdf5 file to the current working directory
 
@@ -238,8 +239,9 @@ def create_hdf5(path):
             if name != 'dataset':
                 fdata_name = name + "_data"
                 # print(fdata_name)
-                t_data = np.vstack([vec_seg1(np.array(data), 500, 0.35, verbose=True) for data in grp.values()])
-                print(fdata_name, ": ", t_data.shape)
+                t_data = np.vstack([vec_seg1(np.array(data), 500, 0.35) for data in grp.values()])
+                if verbose:
+                    print(fdata_name, ": ", t_data.shape)
                 grp.create_dataset(fdata_name, data=t_data)
 
                 # for old_data in grp.keys():
@@ -250,13 +252,10 @@ def create_hdf5(path):
         raw_data = np.vstack([hdf[name] for name in names if (name.split('_')[-1] == 'data')])
         raw_data = raw_data[:, :, 1:6]
         input_train, input_test, output_train, output_test = train_test_split(raw_data[:, :, 0:5], raw_data[:, 0, -1],
-                                                                              test_size=0.1, shuffle=True, random_state=0)
-        print(input_train.shape)
-        print(input_test.shape)
-        print(output_train.shape)
-        print(output_test.shape)
+                                                                              test_size=0.1, shuffle=True)
 
-        dsets = ['dataset/train/input_train', 'dataset/test/input_test', 'dataset/train/output_train', 'dataset/test/output_test']
+        dsets = ['dataset/train/input_train', 'dataset/test/input_test', 'dataset/train/output_train', 'dataset/test'
+                                                                                                       '/output_test']
 
         for dset, dat in zip(dsets, [input_train, input_test, output_train, output_test]):
             if dset in hdf:
@@ -268,8 +267,8 @@ def create_hdf5(path):
                     pass
             else:
                 hdf.create_dataset(dset, data=dat)
-
-        print("Created HDF file with the following groups: ", list(hdf.items()), "\n")
+        if verbose:
+            print("Created HDF file with the following groups: ", list(hdf.items()), "\n")
 
 
 def create_accel_plots(root_dir, save=None):
@@ -416,55 +415,70 @@ def accel_fft_plots(root_dir, save=None):
     return figs
 
 
-def test_train(root_dir, save=None):
+def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median=False, std=False, cov=False):
     input_train = np.array(root_dir['/dataset/train/input_train'])
     input_test = np.array(root_dir['/dataset/test/input_test'])
     output_train = np.array(root_dir['/dataset/train/output_train'])
     output_test = np.array(root_dir['/dataset/test/output_test'])
 
-    features_train = pd.DataFrame(
-        columns=['meanx', 'meany', 'meanz', 'medianx', 'mediany', 'medianz', 'varx', 'vary', 'varz'])
-    features_test = pd.DataFrame(
-        columns=['meanx', 'meany', 'meanz', 'medianx', 'mediany', 'medianz', 'varx', 'vary', 'varz'])
+    features_train = pd.DataFrame()
+    features_test = pd.DataFrame()
 
-    features_train['meanx'] = np.mean(np.mean(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
-    features_train['meany'] = np.mean(np.mean(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
-    features_train['meanz'] = np.mean(np.mean(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
+    if mean:
+        features_train['meanx'] = np.mean(np.mean(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
+        features_train['meany'] = np.mean(np.mean(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
+        features_train['meanz'] = np.mean(np.mean(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
+        features_train['meana'] = np.mean(np.mean(vec_seg1(input_train[:, :, 3].T, 50), 1), 0)
 
-    features_train['medianx'] = np.mean(np.median(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
-    features_train['mediany'] = np.mean(np.median(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
-    features_train['medianz'] = np.mean(np.median(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
+        features_test['meanx'] = np.mean(np.mean(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
+        features_test['meany'] = np.mean(np.mean(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
+        features_test['meanz'] = np.mean(np.mean(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
+        features_test['meana'] = np.mean(np.mean(vec_seg1(input_test[:, :, 3].T, 50), 1), 0)
 
-    features_train['varx'] = np.mean(np.var(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
-    features_train['vary'] = np.mean(np.var(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
-    features_train['varz'] = np.mean(np.var(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
+    if var:
+        features_train['varx'] = np.mean(np.var(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
+        features_train['vary'] = np.mean(np.var(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
+        features_train['varz'] = np.mean(np.var(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
+        features_train['vara'] = np.mean(np.var(vec_seg1(input_train[:, :, 3].T, 50), 1), 0)
 
-    features_test['meanx'] = np.mean(np.mean(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
-    features_test['meany'] = np.mean(np.mean(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
-    features_test['meanz'] = np.mean(np.mean(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
+        features_test['varx'] = np.mean(np.var(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
+        features_test['vary'] = np.mean(np.var(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
+        features_test['varz'] = np.mean(np.var(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
+        features_test['vara'] = np.mean(np.var(vec_seg1(input_test[:, :, 3].T, 50), 1), 0)
 
-    features_test['medianx'] = np.mean(np.median(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
-    features_test['mediany'] = np.mean(np.median(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
-    features_test['medianz'] = np.mean(np.median(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
+    if median:
+        features_train['medianx'] = np.mean(np.median(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
+        features_train['mediany'] = np.mean(np.median(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
+        features_train['medianz'] = np.mean(np.median(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
+        features_train['mediana'] = np.mean(np.median(vec_seg1(input_train[:, :, 3].T, 50), 1), 0)
 
-    features_test['varx'] = np.mean(np.var(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
-    features_test['vary'] = np.mean(np.var(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
-    features_test['varz'] = np.mean(np.var(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
+        features_test['medianx'] = np.mean(np.median(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
+        features_test['mediany'] = np.mean(np.median(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
+        features_test['medianz'] = np.mean(np.median(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
+        features_test['mediana'] = np.mean(np.median(vec_seg1(input_test[:, :, 3].T, 50), 1), 0)
+
+    if std:
+        features_train['stdx'] = np.mean(np.std(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
+        features_train['stdy'] = np.mean(np.std(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
+        features_train['stdz'] = np.mean(np.std(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
+        features_train['stda'] = np.mean(np.std(vec_seg1(input_train[:, :, 3].T, 50), 1), 0)
+
+        features_test['stdx'] = np.mean(np.std(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
+        features_test['stdy'] = np.mean(np.std(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
+        features_test['stdz'] = np.mean(np.std(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
+        features_test['stda'] = np.mean(np.std(vec_seg1(input_test[:, :, 3].T, 50), 1), 0)
 
     if save is not None:
         if not os.path.exists(save):
             save.mkdir(parents=True, exist_ok=True)
-            print("Made Directory: ", save)
+            if verbose:
+                print("Made Directory: ", save)
 
         save_train = save / 'features_train.csv'
         features_train.to_csv(save_train, index=False)
 
         save_test = save / 'features_test.csv'
         features_test.to_csv(save_test, index=False)
-    print(features_train.shape)
-    print(features_test.shape)
-    print(output_train.shape)
-    print(output_test.shape)
     return features_train, features_test, output_train, output_test
 
 
@@ -484,19 +498,11 @@ accel_figures = dict()
 accel_FFT_figures = dict()
 accel_scatter_figures = dict()
 
+# feature_sets = [{'std': True}, {'mean' : True}, {'var' : True},  {'median' : True}]
 create_hdf5(p)
 
-with h5py.File('./hd5_data.h5', 'r') as hdf:
-    accel_figures.update(create_accel_plots(hdf, p2))
-    plt.close('all')
-    accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
-    plt.close('all')
-    accel_FFT_figures.update(accel_fft_plots(hdf, p2))
-    plt.close('all')
-
-
 with h5py.File('./hd5_data.h5', 'r+') as hdf:
-    x_train, x_test, y_train, y_test = test_train(hdf, p3)
+    x_train, x_test, y_train, y_test = test_train(hdf, p3, var=True, mean=True, median=True)
 
 scaler = StandardScaler()
 
@@ -530,6 +536,14 @@ plt.show()
 
 auc = roc_auc_score(y_test, y_clf_prob[:, 1])
 print('Model AUC: ', auc)
+
+# with h5py.File('./hd5_data.h5', 'r') as hdf:
+#     accel_figures.update(create_accel_plots(hdf, p2))
+#     plt.close('all')
+#     accel_scatter_figures.update(accel_scatter_plots(hdf, p2))
+#     plt.close('all')
+#     accel_FFT_figures.update(accel_fft_plots(hdf, p2))
+#     plt.close('all')
 
 # TESTING **************************************************************************************************************
 

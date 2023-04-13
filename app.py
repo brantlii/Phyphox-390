@@ -1,10 +1,103 @@
 import os
 import sys
 import pandas as pd
+import numpy as np
+from scipy.stats import kurtosis
 import joblib
 import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QLabel, QLineEdit, QDesktopWidget
 
+
+def vec_seg1(array, sub_window_size, overlap: float = 0, clearing_time_index=None, max_time=None, verbose=False):
+    if clearing_time_index is None:
+        clearing_time_index = sub_window_size
+
+    if max_time is None:
+        max_time = array.shape[0]
+
+    stride_size = int(((1 - overlap) * sub_window_size) // 1)
+    # print(stride_size)
+    start = clearing_time_index - sub_window_size
+
+    sub_windows = (start + np.expand_dims(np.arange(sub_window_size), 0)
+                   # Create a rightmost vector as [0, V, 2V, ...].
+                   + np.expand_dims(np.arange(max_time - sub_window_size + 1, step=stride_size), 0).T)
+
+    lost = (array.shape[0] - sub_windows[-1, -1] - 1) / array.shape[0]
+    last_valid_index = sub_windows[-1, -1]
+
+    if verbose is True:
+        print("Last valid index: ", sub_windows[-1, -1])
+        print("Data loss due to segmentation: ", last_valid_index)
+
+    # Adapted from the work of Syafiq Kamarul Azman, Towards Data Science
+    return array[sub_windows], lost, last_valid_index
+
+
+def pre_process(data_in):
+    # Convolution will reduce rows by (window_Size - 1)
+    rows = data_in.shape[0] - 10 + 1
+    cols = data_in.shape[1]
+
+    print("convolution sizing")
+
+    # Ignore the time column
+    data_out = np.zeros((rows, cols - 1))
+    print("Time ignored")
+
+    # Apply SMA
+    for ii in range(cols - 1):
+        data_out[:, ii] = np.convolve(data_in.iloc[:, ii + 1], (np.ones(10) / 10), mode='valid')
+
+    data_in = data_in.iloc[0:rows, :]
+    print("SMA and input truncation 1 completed")
+
+    # Segment into 500 point chunks
+    data_out, _, last = vec_seg1(np.array(data_out), 500)
+    print("Data segmented")
+
+    # Segmentation may incur data loss
+    data_in = data_in.iloc[0:(last + 1), :]
+    print(data_in.shape)
+    print(data_out.shape)
+    print("input truncation 2 to match viable features")
+
+    return data_in, data_out
+
+
+def extract_features(raw_data):
+    features = pd.DataFrame()
+    print('in features')
+    x_data, _, _ = vec_seg1(raw_data[:, :, 0].T, 50)
+    y_data, _, _ = vec_seg1(raw_data[:, :, 1].T, 50)
+    z_data, _, _ = vec_seg1(raw_data[:, :, 2].T, 50)
+    a_data, _, _ = vec_seg1(raw_data[:, :, 3].T, 50)
+
+    # Extract the features
+    for ti, dat in zip(['x', 'y', 'z', 'a'], [x_data, y_data, z_data, a_data]):
+        features['mean' + ti] = np.mean(np.mean(dat, 1), 0)
+        features['var' + ti] = np.mean(np.var(dat, 1), 0)
+        features['std' + ti] = np.mean(np.std(dat, 1), 0)
+        features['kurt' + ti] = np.mean(kurtosis(dat, axis=1, fisher=False), 0)
+        features['maxim' + ti] = np.mean(np.nanmax(dat, 1), 0)
+        features['ptp' + ti] = np.mean(np.ptp(dat, 1), 0)
+
+    print(features.columns)
+    print("feature dataframe made")
+    # @Brant if the project needs a CSV of the features to be output could you make that happen here / add that to GUI
+    # if save is not None:
+    #     if not os.path.exists(save):
+    #         save.mkdir(parents=True, exist_ok=True)
+    #         if verbose:
+    #             print("Made Directory: ", save)
+    #
+    #     save_train = save / 'features_train.csv'
+    #     features.to_csv(save_train, index=False)
+    #
+    #     save_test = save / 'features_test.csv'
+    #     features.to_csv(save_test, index=False)
+
+    return features
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -65,6 +158,7 @@ class MainWindow(QMainWindow):
             # Set the input file path in the text box
             self.input_file_path_text.setText(file_path)
 
+
     def process_input_file(self):
         # Get the input file path from the text box
         input_file_path = self.input_file_path_text.text()
@@ -73,11 +167,17 @@ class MainWindow(QMainWindow):
             try:
                 # Load the input file
                 input_data = pd.read_csv(input_file_path)
+                print("Input file read successfully.")
+
+                input_data,  sanitized_data = pre_process(input_data)
+                print("Pre-processing completed successfully.")
+
+                feature_data = extract_features(sanitized_data)
+                print("Features extracted successfully.")
 
                 # Apply the logistic regression model to the input data
-                input_data["Action"] = self.model.predict(
-                    input_data[["Acceleration x (m/s^2)", "Acceleration y (m/s^2)",
-                                "Acceleration z (m/s^2)", "Absolute acceleration (m/s^2)"]])
+                input_data['Action'] = np.repeat(self.model.predict(feature_data), 500)
+
 
                 # Construct the output file path in the same directory as the input file
                 output_file_path = os.path.join(os.path.dirname(input_file_path),
@@ -85,8 +185,8 @@ class MainWindow(QMainWindow):
 
                 # Save the output file
                 input_data.to_csv(output_file_path, index=False)
-
                 self.status_label.setText("Output file saved successfully.")
+
             except Exception as e:
                 self.status_label.setText(f"Error: {e}")
         else:
@@ -98,22 +198,33 @@ class MainWindow(QMainWindow):
 
         if input_file_path.endswith(".csv"):
             try:
-                # Load the input file
-                input_data = pd.read_csv(input_file_path)
+                # Load the output file
+                output_file_path = os.path.join(os.path.dirname(input_file_path),
+                                                os.path.basename(input_file_path)[:-4] + "_output.csv")
+                input_data = pd.read_csv(output_file_path)
 
                 # Create the plot
-                fig, ax = plt.subplots()
-                ax.plot(input_data["Time (s)"], input_data["Acceleration x (m/s^2)"], label="Acceleration x")
-                ax.plot(input_data["Time (s)"],
-                input_data["Acceleration y (m/s^2)"], label="Acceleration y")
-                ax.plot(input_data["Time (s)"], input_data["Acceleration z (m/s^2)"], label="Acceleration z")
-                ax.plot(input_data["Time (s)"], input_data["Absolute acceleration (m/s^2)"], label="Absolute acceleration")
-                ax.plot(input_data["Time (s)"], input_data["Action"], label="Action")
-                ax.legend()
-                ax.set_xlabel("Time (s)")
-                ax.set_ylabel("Acceleration (m/s^2)")
-                ax.set_title("Acceleration vs Time")
+                fig, ax = plt.subplots(2,1)
 
+                ax[0].plot(input_data["Time (s)"], input_data["Acceleration x (m/s^2)"], linewidth=0.8, label="Acceleration x")
+                ax[0].plot(input_data["Time (s)"],
+                        input_data["Acceleration y (m/s^2)"], linewidth=0.8, label="Acceleration y")
+                ax[0].plot(input_data["Time (s)"], input_data["Acceleration z (m/s^2)"], linewidth=0.8, label="Acceleration z")
+                ax[0].plot(input_data["Time (s)"], input_data["Absolute acceleration (m/s^2)"], linewidth=0.8,
+                        label="Absolute acceleration")
+
+                ax[0].legend()
+                ax[0].set_xlabel("Time (s)")
+                ax[0].set_ylabel("Acceleration (m/s^2)")
+                ax[0].set_title("Acceleration vs Time")
+
+                ax[1].plot(input_data["Time (s)"], input_data["Action"], linewidth=0.8, label="Action")
+                ax[1].legend()
+                ax[1].set_xlabel("Time (s)")
+                ax[1].set_ylabel("Action")
+                ax[1].set_title("Action Prediction vs Time")
+
+                fig.set_layout_engine(layout='tight')
                 plt.show()
             except Exception as e:
                 self.status_label.setText(f"Error: {e}")

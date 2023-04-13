@@ -123,6 +123,7 @@ def vec_seg1(array, sub_window_size,
             # Create a rightmost vector as [0, V, 2V, ...].
             np.expand_dims(np.arange(max_time - sub_window_size + 1, step=stride_size), 0).T
     )
+
     if verbose is True:
         lost = (array.shape[0] - sub_windows[-1, -1] - 1) / array.shape[0]
         print("Last valid index: ", sub_windows[-1, -1])
@@ -256,8 +257,13 @@ def create_hdf5(path, verbose=False):
         names = list_nodes_t(hdf, 'd')
         raw_data = np.vstack([hdf[name] for name in names if (name.split('_')[-1] == 'data')])
         raw_data = raw_data[:, :, 1:6]
-        input_train, input_test, output_train, output_test = train_test_split(raw_data[:, :, 0:5], raw_data[:, 0, -1],
+        print(raw_data.shape)
+        input_train, input_test, output_train, output_test = train_test_split(raw_data[:, :, 0:4], raw_data[:, 0, -1],
                                                                               test_size=0.1, shuffle=True)
+        print(input_train.shape)
+        print(input_test.shape)
+        print(output_train.shape)
+        print(output_test.shape)
 
         dsets = ['dataset/train/input_train', 'dataset/test/input_test', 'dataset/train/output_train', 'dataset/test'
                                                                                                        '/output_test']
@@ -429,6 +435,7 @@ def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median
 
     features_train = pd.DataFrame()
     features_test = pd.DataFrame()
+    print(input_test.shape)
 
     for i, ti in enumerate(['x', 'y', 'z', 'a']):
         if mean:

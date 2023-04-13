@@ -4,6 +4,7 @@ import os
 import h5py
 import matplotlib.pyplot as plt
 import pandas as pd
+import joblib
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, roc_curve, \
     RocCurveDisplay, roc_auc_score
@@ -531,6 +532,8 @@ plt.show()
 
 auc = roc_auc_score(y_test, y_clf_prob[:, 1])
 print('Model AUC: ', auc)
+
+joblib.dump(l_reg, 'l_reg.joblib')
 
 # with h5py.File('./hd5_data.h5', 'r') as hdf:
 #     accel_figures.update(create_accel_plots(hdf, p2))

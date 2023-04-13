@@ -11,6 +11,8 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from scipy.stats import kurtosis
+from itertools import combinations, chain
 
 
 def list_nodes_t(root_dir, n_type=None):
@@ -415,7 +417,8 @@ def accel_fft_plots(root_dir, save=None):
     return figs
 
 
-def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median=False, std=False, cov=False):
+def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median=False, std=False, cov=False, kurt=False,
+               maxim=False, minim=True, ptp=False):
     input_train = np.array(root_dir['/dataset/train/input_train'])
     input_test = np.array(root_dir['/dataset/test/input_test'])
     output_train = np.array(root_dir['/dataset/train/output_train'])
@@ -424,49 +427,38 @@ def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median
     features_train = pd.DataFrame()
     features_test = pd.DataFrame()
 
-    if mean:
-        features_train['meanx'] = np.mean(np.mean(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
-        features_train['meany'] = np.mean(np.mean(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
-        features_train['meanz'] = np.mean(np.mean(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
-        features_train['meana'] = np.mean(np.mean(vec_seg1(input_train[:, :, 3].T, 50), 1), 0)
+    for i, ti in enumerate(['x', 'y', 'z', 'a']):
+        if mean:
+            features_train[('mean' + ti)] = np.mean(np.mean(vec_seg1(input_train[:, :, i].T, 50), 1), 0)
+            features_test[('mean' + ti)] = np.mean(np.mean(vec_seg1(input_test[:, :, i].T, 50), 1), 0)
 
-        features_test['meanx'] = np.mean(np.mean(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
-        features_test['meany'] = np.mean(np.mean(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
-        features_test['meanz'] = np.mean(np.mean(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
-        features_test['meana'] = np.mean(np.mean(vec_seg1(input_test[:, :, 3].T, 50), 1), 0)
+        if var:
+            features_train[('var' + ti)] = np.mean(np.var(vec_seg1(input_train[:, :, i].T, 50), 1), 0)
+            features_test[('var' + ti)] = np.mean(np.var(vec_seg1(input_test[:, :, i].T, 50), 1), 0)
 
-    if var:
-        features_train['varx'] = np.mean(np.var(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
-        features_train['vary'] = np.mean(np.var(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
-        features_train['varz'] = np.mean(np.var(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
-        features_train['vara'] = np.mean(np.var(vec_seg1(input_train[:, :, 3].T, 50), 1), 0)
+        if median:
+            features_train[('median' + ti)] = np.mean(np.median(vec_seg1(input_train[:, :, i].T, 50), 1), 0)
+            features_test[('median' + ti)] = np.mean(np.median(vec_seg1(input_test[:, :, i].T, 50), 1), 0)
 
-        features_test['varx'] = np.mean(np.var(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
-        features_test['vary'] = np.mean(np.var(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
-        features_test['varz'] = np.mean(np.var(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
-        features_test['vara'] = np.mean(np.var(vec_seg1(input_test[:, :, 3].T, 50), 1), 0)
+        if std:
+            features_train[('std' + ti)] = np.mean(np.std(vec_seg1(input_train[:, :, i].T, 50), 1), 0)
+            features_test[('std' + ti)] = np.mean(np.std(vec_seg1(input_test[:, :, i].T, 50), 1), 0)
 
-    if median:
-        features_train['medianx'] = np.mean(np.median(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
-        features_train['mediany'] = np.mean(np.median(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
-        features_train['medianz'] = np.mean(np.median(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
-        features_train['mediana'] = np.mean(np.median(vec_seg1(input_train[:, :, 3].T, 50), 1), 0)
+        if kurt:
+            features_train[('kurt' + ti)] = np.mean(kurtosis(vec_seg1(input_train[:, :, i].T, 50), axis=1, fisher=False), 0)
+            features_test[('kurt' + ti)] = np.mean(kurtosis(vec_seg1(input_test[:, :, i].T, 50), axis=1, fisher=False), 0)
 
-        features_test['medianx'] = np.mean(np.median(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
-        features_test['mediany'] = np.mean(np.median(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
-        features_test['medianz'] = np.mean(np.median(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
-        features_test['mediana'] = np.mean(np.median(vec_seg1(input_test[:, :, 3].T, 50), 1), 0)
+        if maxim:
+            features_train[('maxim' + ti)] = np.mean(np.nanmax(vec_seg1(input_train[:, :, i].T, 50), 1), 0)
+            features_test[('maxim' + ti)] = np.mean(np.nanmax(vec_seg1(input_test[:, :, i].T, 50), 1), 0)
 
-    if std:
-        features_train['stdx'] = np.mean(np.std(vec_seg1(input_train[:, :, 0].T, 50), 1), 0)
-        features_train['stdy'] = np.mean(np.std(vec_seg1(input_train[:, :, 1].T, 50), 1), 0)
-        features_train['stdz'] = np.mean(np.std(vec_seg1(input_train[:, :, 2].T, 50), 1), 0)
-        features_train['stda'] = np.mean(np.std(vec_seg1(input_train[:, :, 3].T, 50), 1), 0)
+        if minim:
+            features_train[('minim' + ti)] = np.mean(np.nanmin(vec_seg1(input_train[:, :, i].T, 50), 1), 0)
+            features_test[('minim' + ti)] = np.mean(np.nanmin(vec_seg1(input_test[:, :, i].T, 50), 1), 0)
 
-        features_test['stdx'] = np.mean(np.std(vec_seg1(input_test[:, :, 0].T, 50), 1), 0)
-        features_test['stdy'] = np.mean(np.std(vec_seg1(input_test[:, :, 1].T, 50), 1), 0)
-        features_test['stdz'] = np.mean(np.std(vec_seg1(input_test[:, :, 2].T, 50), 1), 0)
-        features_test['stda'] = np.mean(np.std(vec_seg1(input_test[:, :, 3].T, 50), 1), 0)
+        if ptp:
+            features_train[('ptp' + ti)] = np.mean(np.ptp(vec_seg1(input_train[:, :, i].T, 50), 1), 0)
+            features_test[('ptp' + ti)] = np.mean(np.ptp(vec_seg1(input_test[:, :, i].T, 50), 1), 0)
 
     if save is not None:
         if not os.path.exists(save):
@@ -498,11 +490,12 @@ accel_figures = dict()
 accel_FFT_figures = dict()
 accel_scatter_figures = dict()
 
-# feature_sets = [{'std': True}, {'mean' : True}, {'var' : True},  {'median' : True}]
+features = {'std': True, 'mean': True, 'var': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True}
+
 create_hdf5(p)
 
 with h5py.File('./hd5_data.h5', 'r+') as hdf:
-    x_train, x_test, y_train, y_test = test_train(hdf, p3, var=True, mean=True, median=True)
+    x_train, x_test, y_train, y_test = test_train(hdf, p3, **features)
 
 scaler = StandardScaler()
 
@@ -521,7 +514,7 @@ print('Model Accuracy: ', acc)
 # Confusion Matrix Visualization
 cm = confusion_matrix(y_test, y_pred)
 cm_disp = ConfusionMatrixDisplay(cm).plot()
-plt.title('Wine Quality Classifier Confusion Matrix')
+plt.title('Classifier Confusion Matrix')
 plt.show()
 
 # F1 Score
@@ -531,7 +524,7 @@ print('Model F1_Score: ', f1)
 # ROC and AUC
 fp_rate, tp_rate, _ = roc_curve(y_test, y_clf_prob[:, 1], pos_label=clf.classes_[1])
 roc_disp = RocCurveDisplay(fpr=fp_rate, tpr=tp_rate).plot()
-plt.title('Wine Quality Classifier ROC Curve')
+plt.title('Classifier ROC Curve')
 plt.show()
 
 auc = roc_auc_score(y_test, y_clf_prob[:, 1])
@@ -545,7 +538,48 @@ print('Model AUC: ', auc)
 #     accel_FFT_figures.update(accel_fft_plots(hdf, p2))
 #     plt.close('all')
 
+
 # TESTING **************************************************************************************************************
+
+# Feature Selection ****************************************************************************************************
+
+# scaler = StandardScaler()
+# l_reg = LogisticRegression(max_iter=10000)
+
+# feature_names = list(features.keys())
+# num_features = len(feature_names)
+# combs = [list(combinations(range(num_features), i)) for i in range(1, num_features)]
+# combs = [[*i] for i in list(chain.from_iterable(combs))]
+# acc_avg = dict()
+
+# for n in range(25):
+#     print("Iteration: ", n)
+#     create_hdf5(p)
+#
+#     for ii in combs:
+#         model_features = [feature_names[jj] for jj in ii]
+#         model = ", ".join(model_features)
+#         print("Training with: ", model)
+#
+#         with h5py.File('./hd5_data.h5', 'r+') as hdf:
+#             x_train, x_test, y_train, y_test = test_train(hdf, p3, **{lol: features.get(lol) for lol in model_features})
+#
+#         clf.fit(x_train, y_train)
+#
+#         # Testing the Model
+#         y_prediction = clf.predict(x_test)
+#         y_clf_prob = clf.predict_proba(x_test)
+#
+#         # Model Accuracy
+#         acc = acc_avg.get(model, 0)
+#         acc += accuracy_score(y_test, y_prediction)
+#         # print('Model Accuracy: ', acc)
+#         acc_avg.update({model: acc})
+#
+# for x, y in acc_avg.items():
+#     acc_avg.update({x: (y/20)})
+#     print("Average Accuracy of ", x, ": ", (y/25))
+# Feature Selection *****************************************************************************************************
 
 # Using "Match, Case" control flow here to run the functions from the console with text commands
 # emulates the kind of standalone interactive environment we'll be in with a desktop app

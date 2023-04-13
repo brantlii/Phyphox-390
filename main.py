@@ -204,6 +204,8 @@ def create_hdf5(path, verbose=False):
                     # print(group_name)
 
             for file in files:
+                if not file.endswith(".csv"):
+                    continue
                 dataset_name = root[len(str(path)):].replace("\\", "/") + "/" + file
 
                 data = np.genfromtxt(os.path.join(root, file), skip_header=1, delimiter=',')
@@ -482,9 +484,9 @@ def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median
 # the directory tree with a test_dir folder and sub-folders for each group and a figures
 # folder or similar for saving figure images
 
-p = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\test_dir")
-p2 = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\Figures")
-p3 = pth.Path("C:\\Users\\Chris\\PycharmProjects\\Phyphox-390\\Features")
+p = pth.Path("./test_dir")
+p2 = pth.Path("./Figures")
+p3 = pth.Path("./Features")
 
 accel_figures = dict()
 accel_FFT_figures = dict()

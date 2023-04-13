@@ -1,3 +1,4 @@
+import os
 import sys
 import pandas as pd
 import joblib
@@ -74,10 +75,15 @@ class MainWindow(QMainWindow):
                 input_data = pd.read_csv(input_file_path)
 
                 # Apply the logistic regression model to the input data
-                input_data["Action"] = self.model.predict(input_data[["Time (s)", "Acceleration x (m/s^2)", "Acceleration y (m/s^2)",
-                                                                        "Acceleration z (m/s^2)", "Absolute acceleration (m/s^2)"]])
+                input_data["Action"] = self.model.predict(
+                    input_data[["Time (s)", "Acceleration x (m/s^2)", "Acceleration y (m/s^2)",
+                                "Acceleration z (m/s^2)", "Absolute acceleration (m/s^2)"]])
+
+                # Construct the output file path in the same directory as the input file
+                output_file_path = os.path.join(os.path.dirname(input_file_path),
+                                                os.path.basename(input_file_path)[:-4] + "_output.csv")
+
                 # Save the output file
-                output_file_path = input_file_path[:-4] + "_output.csv"
                 input_data.to_csv(output_file_path, index=False)
 
                 self.status_label.setText("Output file saved successfully.")

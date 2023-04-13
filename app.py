@@ -14,7 +14,7 @@ class MainWindow(QMainWindow):
 
         # Set up the window
         self.setWindowTitle("The Phyphox-390 Walking/Jumping Classifier")
-        self.setGeometry(0, 0, 800, 250)
+        self.setGeometry(0, 0, 800, 400)
         qtRectangle = self.frameGeometry()
         centerPoint = QDesktopWidget().availableGeometry().center()
         qtRectangle.moveCenter(centerPoint)
@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
         # Set up the status label
         self.status_label = QLabel("", self)
         self.status_label.move(20, 190)
-        self.status_label.resize(760, 40)
+        self.status_label.resize(760, 190)
         self.status_label.setWordWrap(True)
         self.status_label.setStyleSheet("background-color: white; color: black; border: 1px solid black;")
 
@@ -76,7 +76,7 @@ class MainWindow(QMainWindow):
 
                 # Apply the logistic regression model to the input data
                 input_data["Action"] = self.model.predict(
-                    input_data[["Time (s)", "Acceleration x (m/s^2)", "Acceleration y (m/s^2)",
+                    input_data[["Acceleration x (m/s^2)", "Acceleration y (m/s^2)",
                                 "Acceleration z (m/s^2)", "Absolute acceleration (m/s^2)"]])
 
                 # Construct the output file path in the same directory as the input file

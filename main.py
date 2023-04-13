@@ -505,6 +505,7 @@ scaler = StandardScaler()
 l_reg = LogisticRegression(max_iter=10000)
 clf = make_pipeline(StandardScaler(), l_reg)
 clf.fit(x_train, y_train)
+joblib.dump(clf, 'l_reg.joblib')
 
 # Testing the Model
 y_pred = clf.predict(x_test)
@@ -532,8 +533,6 @@ plt.show()
 
 auc = roc_auc_score(y_test, y_clf_prob[:, 1])
 print('Model AUC: ', auc)
-
-joblib.dump(l_reg, 'l_reg.joblib')
 
 # with h5py.File('./hd5_data.h5', 'r') as hdf:
 #     accel_figures.update(create_accel_plots(hdf, p2))

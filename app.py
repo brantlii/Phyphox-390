@@ -7,7 +7,6 @@ import joblib
 import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QLabel, QLineEdit, QDesktopWidget
 
-
 def vec_seg1(array, sub_window_size, overlap: float = 0, clearing_time_index=None, max_time=None, verbose=False):
     if clearing_time_index is None:
         clearing_time_index = sub_window_size
@@ -107,7 +106,7 @@ class MainWindow(QMainWindow):
 
         # Set up the window
         self.setWindowTitle("The Phyphox-390 Walking/Jumping Classifier")
-        self.setGeometry(0, 0, 800, 400)
+        self.setGeometry(0, 0, 800, 300)
         qtRectangle = self.frameGeometry()
         centerPoint = QDesktopWidget().availableGeometry().center()
         qtRectangle.moveCenter(centerPoint)
@@ -140,7 +139,7 @@ class MainWindow(QMainWindow):
         # Set up the status label
         self.status_label = QLabel("", self)
         self.status_label.move(20, 190)
-        self.status_label.resize(760, 190)
+        self.status_label.resize(760, 90)
         self.status_label.setWordWrap(True)
         self.status_label.setStyleSheet("background-color: white; color: black; border: 1px solid black;")
 

@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from scipy.stats import kurtosis
+from scipy.stats import kurtosis, variation
 from itertools import combinations, chain
 
 
@@ -257,13 +257,13 @@ def create_hdf5(path, verbose=False):
         names = list_nodes_t(hdf, 'd')
         raw_data = np.vstack([hdf[name] for name in names if (name.split('_')[-1] == 'data')])
         raw_data = raw_data[:, :, 1:6]
-        print(raw_data.shape)
+        # print(raw_data.shape)
         input_train, input_test, output_train, output_test = train_test_split(raw_data[:, :, 0:4], raw_data[:, 0, -1],
                                                                               test_size=0.1, shuffle=True)
-        print(input_train.shape)
-        print(input_test.shape)
-        print(output_train.shape)
-        print(output_test.shape)
+        # print(input_train.shape)
+        # print(input_test.shape)
+        # print(output_train.shape)
+        # print(output_test.shape)
 
         dsets = ['dataset/train/input_train', 'dataset/test/input_test', 'dataset/train/output_train', 'dataset/test'
                                                                                                        '/output_test']
@@ -427,7 +427,7 @@ def accel_fft_plots(root_dir, save=None):
 
 
 def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median=False, std=False, cov=False, kurt=False,
-               maxim=False, minim=True, ptp=False):
+               maxim=False, minim=False, ptp=False, cvar=False, corr=False):
     input_train = np.array(root_dir['/dataset/train/input_train'])
     input_test = np.array(root_dir['/dataset/test/input_test'])
     output_train = np.array(root_dir['/dataset/train/output_train'])
@@ -435,7 +435,7 @@ def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median
 
     features_train = pd.DataFrame()
     features_test = pd.DataFrame()
-    print(input_test.shape)
+    # print(input_test.shape)
 
     for i, ti in enumerate(['x', 'y', 'z', 'a']):
         if mean:
@@ -470,6 +470,35 @@ def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median
             features_train[('ptp' + ti)] = np.mean(np.ptp(vec_seg1(input_train[:, :, i].T, 50), 1), 0)
             features_test[('ptp' + ti)] = np.mean(np.ptp(vec_seg1(input_test[:, :, i].T, 50), 1), 0)
 
+        if cvar:
+            features_train[('cvar' + ti)] = np.mean(variation(vec_seg1(input_train[:, :, i].T, 50), axis=1, nan_policy='omit'), 0)
+            features_test[('cvar' + ti)] = np.mean(variation(vec_seg1(input_test[:, :, i].T, 50), axis=1, nan_policy='omit'), 0)
+
+    if corr:
+        corrxy = []
+        corrxz = []
+        corryz = []
+        for a, b, c in zip(input_train[:, :, 0], input_train[:, :, 1], input_train[:, :, 2]):
+            corrxy.append(np.correlate(a,b))
+            corrxz.append(np.correlate(a, c))
+            corryz.append(np.correlate(b, c))
+
+        features_train['corrxy'] = corrxy
+        features_train['corrxz'] = corrxz
+        features_train['corryz'] = corryz
+
+        corrxy = []
+        corrxz = []
+        corryz = []
+        for a, b, c in zip(input_test[:, :, 0], input_test[:, :, 1], input_test[:, :, 2]):
+            corrxy.append(np.correlate(a,b))
+            corrxz.append(np.correlate(a, c))
+            corryz.append(np.correlate(b, c))
+
+        features_test['corrxy'] = corrxy
+        features_test['corrxz'] = corrxz
+        features_test['corryz'] = corryz
+
     if save is not None:
         if not os.path.exists(save):
             save.mkdir(parents=True, exist_ok=True)
@@ -500,19 +529,25 @@ accel_figures = dict()
 accel_FFT_figures = dict()
 accel_scatter_figures = dict()
 
-features = {'std': True, 'mean': True, 'var': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True}
+features1 = {'std': True, 'mean': True, 'var': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True,}
+features2 = {'cvar': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True}
+features3 = {'std': True, 'kurt':True, 'ptp':True}
+features4 = {'var': True, 'kurt': True, 'ptp': True}
+features5 = {'std': True, 'mean': True, 'var': True,  'median': True,
+            'kurt': True, 'maxim': True, 'minim': True, 'ptp': True,
+            'cvar': True, 'corr': True}
+
 
 create_hdf5(p)
 
 with h5py.File('./hd5_data.h5', 'r+') as hdf:
-    x_train, x_test, y_train, y_test = test_train(hdf, p3, **features)
+    x_train, x_test, y_train, y_test = test_train(hdf, p3, **features5)
 
 scaler = StandardScaler()
 
 l_reg = LogisticRegression(max_iter=10000)
 clf = make_pipeline(StandardScaler(), l_reg)
 clf.fit(x_train, y_train)
-joblib.dump(clf, 'l_reg.joblib')
 
 # Testing the Model
 y_pred = clf.predict(x_test)
@@ -521,6 +556,10 @@ y_clf_prob = clf.predict_proba(x_test)
 # Model Accuracy
 acc = accuracy_score(y_test, y_pred)
 print('Model Accuracy: ', acc)
+
+# joblib.dump(clf, '10_feature.joblib')
+# joblib.dump(clf, 'var_kurt_ptp.joblib')
+# joblib.dump(clf, 'l_reg.joblib')
 
 # Confusion Matrix Visualization
 cm = confusion_matrix(y_test, y_pred)
@@ -549,31 +588,33 @@ print('Model AUC: ', auc)
 #     accel_FFT_figures.update(accel_fft_plots(hdf, p2))
 #     plt.close('all')
 
-
 # TESTING **************************************************************************************************************
 
 # Feature Selection ****************************************************************************************************
-
 # scaler = StandardScaler()
 # l_reg = LogisticRegression(max_iter=10000)
-
+# clf = make_pipeline(scaler, l_reg)
+# features = {'std': True, 'mean': True, 'var': True,  'median': True,
+#             'kurt': True, 'maxim': True, 'minim': True, 'ptp': True}
+#
 # feature_names = list(features.keys())
 # num_features = len(feature_names)
 # combs = [list(combinations(range(num_features), i)) for i in range(1, num_features)]
 # combs = [[*i] for i in list(chain.from_iterable(combs))]
 # acc_avg = dict()
-
-# for n in range(25):
+#
+# for n in range(60):
 #     print("Iteration: ", n)
 #     create_hdf5(p)
 #
 #     for ii in combs:
 #         model_features = [feature_names[jj] for jj in ii]
 #         model = ", ".join(model_features)
-#         print("Training with: ", model)
+#         param_dict = {lol: features.get(lol) for lol in model_features}
 #
 #         with h5py.File('./hd5_data.h5', 'r+') as hdf:
-#             x_train, x_test, y_train, y_test = test_train(hdf, p3, **{lol: features.get(lol) for lol in model_features})
+#             print("Training with: ", model)
+#             x_train, x_test, y_train, y_test = test_train(hdf, p3, **param_dict)
 #
 #         clf.fit(x_train, y_train)
 #
@@ -584,12 +625,11 @@ print('Model AUC: ', auc)
 #         # Model Accuracy
 #         acc = acc_avg.get(model, 0)
 #         acc += accuracy_score(y_test, y_prediction)
-#         # print('Model Accuracy: ', acc)
 #         acc_avg.update({model: acc})
 #
 # for x, y in acc_avg.items():
-#     acc_avg.update({x: (y/20)})
-#     print("Average Accuracy of ", x, ": ", (y/25))
+#     acc_avg.update({x: (y/60)})
+#     print("Average Accuracy of ", x, ": ", (y/60))
 # Feature Selection *****************************************************************************************************
 
 # Using "Match, Case" control flow here to run the functions from the console with text commands

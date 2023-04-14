@@ -2,10 +2,21 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-from scipy.stats import kurtosis
+from scipy.stats import kurtosis, variation
 import joblib
 import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QLabel, QLineEdit, QDesktopWidget
+
+
+def down_sample(arr, rate):
+    # Given a numpy array keep 1 out of every X rows
+    d1 = []
+
+    if not isinstance(rate, int):
+        print("Please specify an integer downsampling rate with the rate arg")
+    else:
+        d1 = arr[0::rate]
+    return d1
 
 def vec_seg1(array, sub_window_size, overlap: float = 0, clearing_time_index=None, max_time=None, verbose=False):
     if clearing_time_index is None:
@@ -34,6 +45,7 @@ def vec_seg1(array, sub_window_size, overlap: float = 0, clearing_time_index=Non
 
 
 def pre_process(data_in):
+    # data_in = down_sample(data_in, 5)
     # Convolution will reduce rows by (window_Size - 1)
     rows = data_in.shape[0] - 10 + 1
     cols = data_in.shape[1]
@@ -76,10 +88,26 @@ def extract_features(raw_data):
     for ti, dat in zip(['x', 'y', 'z', 'a'], [x_data, y_data, z_data, a_data]):
         features['mean' + ti] = np.mean(np.mean(dat, 1), 0)
         features['var' + ti] = np.mean(np.var(dat, 1), 0)
+        features['median' + ti] = np.mean(np.median(dat, 1), 0)
         features['std' + ti] = np.mean(np.std(dat, 1), 0)
         features['kurt' + ti] = np.mean(kurtosis(dat, axis=1, fisher=False), 0)
         features['maxim' + ti] = np.mean(np.nanmax(dat, 1), 0)
+        features['minim' + ti] = np.mean(np.nanmin(dat, 1), 0)
         features['ptp' + ti] = np.mean(np.ptp(dat, 1), 0)
+        features['cvar' + ti] = np.mean(variation(dat, axis=1, nan_policy='omit'), 0)
+
+    corrxy = []
+    corrxz = []
+    corryz = []
+    for a, b, c in zip(raw_data[:, :, 0], raw_data[:, :, 1], raw_data[:, :, 2]):
+        corrxy.append(np.correlate(a,b))
+        corrxz.append(np.correlate(a, c))
+        corryz.append(np.correlate(b, c))
+
+    features['corrxy'] = corrxy
+    features['corrxz'] = corrxz
+    features['corryz'] = corryz
+
 
     print(features.columns)
     print("feature dataframe made")
@@ -106,7 +134,8 @@ class MainWindow(QMainWindow):
 
         # Set up the window
         self.setWindowTitle("The Phyphox-390 Walking/Jumping Classifier")
-        self.setGeometry(0, 0, 800, 300)
+
+        self.setGeometry(0, 0, 800, 250)
         qtRectangle = self.frameGeometry()
         centerPoint = QDesktopWidget().availableGeometry().center()
         qtRectangle.moveCenter(centerPoint)
@@ -144,7 +173,7 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("background-color: white; color: black; border: 1px solid black;")
 
         # Set up the logistic regression model
-        self.model = joblib.load("l_reg.joblib")
+        self.model = joblib.load("10_feature.joblib")
 
     def browse_input_file(self):
         # Open a file dialog to select the input file
@@ -243,3 +272,4 @@ if __name__ == "__main__":
 
     # Start the event loop
     sys.exit(app.exec_())
+

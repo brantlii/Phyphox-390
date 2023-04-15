@@ -511,14 +511,14 @@ accel_figures = dict()
 accel_FFT_figures = dict()
 accel_scatter_figures = dict()
 
-features1 = {'std': True, 'mean': False, 'var': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True,}
-features2 = {'cvar': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True}
-features3 = {'std': True, 'kurt':True, 'ptp':True}
+features1 = {'std': False, 'mean': False, 'var': True,  'median': False, 'kurt': True, 'maxim': False, 'minim': False, 'ptp': True,}
+features2 = {'cvar': False,  'median': False, 'kurt': True, 'maxim': False, 'minim': False, 'ptp': True}
+features3 = {'std': False, 'kurt':True, 'ptp':True}
 features4 = {'var': True, 'kurt': True, 'ptp': True}
 
-features5 = {'std': True, 'mean': True, 'var': True,  'median': False,
-            'kurt': True, 'maxim': True, 'minim': False, 'ptp': True,
-            'cvar': True, 'corr': True, 'ske': False}
+features5 = {'std': False, 'mean': False, 'var': True,  'median': False,
+            'kurt': True, 'maxim': False, 'minim': False, 'ptp': True,
+            'cvar': False, 'corr': False, 'ske': False}
 
 
 create_hdf5(p)
@@ -540,7 +540,9 @@ y_clf_prob = clf.predict_proba(x_test)
 acc = accuracy_score(y_test, y_pred)
 print('Model Accuracy: ', acc)
 
-joblib.dump(clf, 'l_reg.joblib')
+joblib.dump(clf, 'l_reg_3.joblib')
+# joblib.dump(clf, 'l_reg_6.joblib')
+# joblib.dump(clf, 'l_reg_8.joblib')
 
 # Confusion Matrix Visualization
 cm = confusion_matrix(y_test, y_pred)

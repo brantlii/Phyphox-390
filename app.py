@@ -25,7 +25,6 @@ def vec_seg1(array, sub_window_size, overlap: float = 0, clearing_time_index=Non
         max_time = array.shape[0]
 
     stride_size = int(((1 - overlap) * sub_window_size) // 1)
-    # print(stride_size)
     start = clearing_time_index - sub_window_size
 
     sub_windows = (start + np.expand_dims(np.arange(sub_window_size), 0)
@@ -39,7 +38,6 @@ def vec_seg1(array, sub_window_size, overlap: float = 0, clearing_time_index=Non
         print("Last valid index: ", sub_windows[-1, -1])
         print("Data loss due to segmentation: ", last_valid_index)
 
-    # Adapted from the work of Syafiq Kamarul Azman, Towards Data Science
     return array[sub_windows], lost, last_valid_index
 
 
@@ -89,7 +87,7 @@ def extract_features(raw_data):
     for ti, dat in zip(['x', 'y', 'z', 'a'], [x_data, y_data, z_data, a_data]):
         features['mean' + ti] = np.mean(np.mean(dat, 1), 0)
         features['var' + ti] = np.mean(np.var(dat, 1), 0)
-        #features['median' + ti] = np.mean(np.median(dat, 1), 0)
+        # features['median' + ti] = np.mean(np.median(dat, 1), 0)
         features['std' + ti] = np.mean(np.std(dat, 1), 0)
         features['kurt' + ti] = np.mean(kurtosis(dat, axis=1, fisher=False), 0)
         features['maxim' + ti] = np.mean(np.nanmax(dat, 1), 0)
@@ -113,7 +111,6 @@ def extract_features(raw_data):
 
     print(features.columns)
     print("feature dataframe made")
-    # @Brant if the project needs a CSV of the features to be output could you make that happen here / add that to GUI
     # if save is not None:
     #     if not os.path.exists(save):
     #         save.mkdir(parents=True, exist_ok=True)
@@ -181,7 +178,7 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("background-color: white; color: black; border: 1px solid black;")
 
         # Set up the logistic regression model
-        self.model = joblib.load("8_feature.joblib")
+        self.model = joblib.load("l_reg.joblib")
     def checkbox_changed(self, state):
         if state == Qt.Checked:
             self.flag = True
@@ -197,8 +194,6 @@ class MainWindow(QMainWindow):
         if file_path:
             # Set the input file path in the text box
             self.input_file_path_text.setText(file_path)
-
-
     def process_input_file(self):
         # Get the input file path from the text box
         input_file_path = self.input_file_path_text.text()
@@ -266,7 +261,7 @@ class MainWindow(QMainWindow):
 
                 ax[1].set_ylabel("Action")
                 ax[1].set_title("Action Prediction vs Time")
-                ax[1].set_yticks([0,1])  # Add this
+                ax[1].set_yticks([0,1])
                 ax[1].set_yticklabels(['Walking', 'Jumping'])
 
 
@@ -283,7 +278,7 @@ if __name__ == "__main__":
     font = app.font()
     font.setFamily("Helvetica")
     app.setFont(font)
-    app.setStyle('Fusion')  # Add this
+    app.setStyle('Fusion')
 
     # Create and show the main window
     window = MainWindow()

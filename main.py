@@ -9,13 +9,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay, f1_score, roc_curve, \
     RocCurveDisplay, roc_auc_score
 from sklearn.model_selection import train_test_split
-from sklearn import preprocessing
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import kurtosis, variation, skew
-
-from itertools import combinations, chain
-
 
 def list_nodes_t(root_dir, n_type=None):
     # Visits each node in an HDF file and checks if the node is a dataset or group.
@@ -115,7 +111,6 @@ def vec_seg1(array, sub_window_size,
         max_time = array.shape[0]
 
     stride_size = int(((1 - overlap) * sub_window_size) // 1)
-    # print(stride_size)
     start = clearing_time_index - sub_window_size
 
     sub_windows = (
@@ -130,7 +125,6 @@ def vec_seg1(array, sub_window_size,
         print("Last valid index: ", sub_windows[-1, -1])
         print("Data loss due to segmentation: ", lost)
 
-    # Adapted from the work of Syafiq Kamarul Azman, Towards Data Science
     return array[sub_windows]
 
 
@@ -204,7 +198,6 @@ def create_hdf5(path, verbose=False):
                 if gr_name not in groups:
                     hdf.create_group(gr_name)
                     groups.add(gr_name)
-                    # print(group_name)
 
             for file in files:
                 if not file.endswith(".csv"):
@@ -220,8 +213,6 @@ def create_hdf5(path, verbose=False):
                 if size > data.shape[0]:
                     size = data.shape[0]
 
-                # print(dataset_name)
-
                 t = overwrite_needed(dataset_name, datasets)
 
                 match t:
@@ -236,7 +227,6 @@ def create_hdf5(path, verbose=False):
 
                 size = (size // 1000) * 1000
 
-        # print(list(data_reformatted.keys()))
         for key, value in data_reformatted.items():
             data_reformatted[key] = data_reformatted[key][0:size]
             data = data_reformatted[key]
@@ -245,7 +235,6 @@ def create_hdf5(path, verbose=False):
         for name, grp in hdf.items():
             if name != 'dataset':
                 fdata_name = name + "_data"
-                # print(fdata_name)
                 t_data = np.vstack([vec_seg1(np.array(data), 500, 0.35) for data in grp.values()])
                 if verbose:
                     print(fdata_name, ": ", t_data.shape)
@@ -258,13 +247,8 @@ def create_hdf5(path, verbose=False):
         names = list_nodes_t(hdf, 'd')
         raw_data = np.vstack([hdf[name] for name in names if (name.split('_')[-1] == 'data')])
         raw_data = raw_data[:, :, 1:6]
-        # print(raw_data.shape)
         input_train, input_test, output_train, output_test = train_test_split(raw_data[:, :, 0:4], raw_data[:, 0, -1],
                                                                               test_size=0.1, shuffle=True)
-        # print(input_train.shape)
-        # print(input_test.shape)
-        # print(output_train.shape)
-        # print(output_test.shape)
 
         dsets = ['dataset/train/input_train', 'dataset/test/input_test', 'dataset/train/output_train', 'dataset/test'
                                                                                                        '/output_test']
@@ -316,9 +300,7 @@ def create_accel_plots(root_dir, save=None):
             figs.update({name: fig})
 
             if save is not None:
-                # print(root_dir[name].parent.name)
                 temp = save / root_dir[name].parent.name[1:]
-                # print(temp)
 
                 if not os.path.exists(temp):
                     temp.mkdir(parents=True, exist_ok=True)
@@ -356,9 +338,7 @@ def accel_scatter_plots(root_dir, save=None):
             figs.update({name.replace(".csv", "_scatter"): fig})
 
             if save is not None:
-                # print(root_dir[name].parent.name)
                 temp = save / root_dir[name].parent.name[1:]
-                # print(temp)
 
                 if not os.path.exists(temp):
                     temp.mkdir(parents=True, exist_ok=True)
@@ -412,9 +392,7 @@ def accel_fft_plots(root_dir, save=None):
             figs.update({name2: fig})
 
             if save is not None:
-                # print(root_dir[name].parent.name)
                 temp = save / root_dir[name].parent.name[1:]
-                # print(temp)
 
                 if not os.path.exists(temp):
                     temp.mkdir(parents=True, exist_ok=True)
@@ -436,7 +414,6 @@ def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median
 
     features_train = pd.DataFrame()
     features_test = pd.DataFrame()
-    # print(input_test.shape)
 
     for i, ti in enumerate(['x', 'y', 'z', 'a']):
         if mean:
@@ -563,10 +540,7 @@ y_clf_prob = clf.predict_proba(x_test)
 acc = accuracy_score(y_test, y_pred)
 print('Model Accuracy: ', acc)
 
-
-# joblib.dump(clf, '8_feature.joblib')
-# joblib.dump(clf, 'var_kurt_ptp.joblib')
-# joblib.dump(clf, 'l_reg.joblib')
+joblib.dump(clf, 'l_reg.joblib')
 
 # Confusion Matrix Visualization
 cm = confusion_matrix(y_test, y_pred)

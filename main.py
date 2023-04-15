@@ -511,7 +511,7 @@ accel_figures = dict()
 accel_FFT_figures = dict()
 accel_scatter_figures = dict()
 
-features1 = {'std': True, 'mean': True, 'var': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True,}
+features1 = {'std': True, 'mean': False, 'var': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True,}
 features2 = {'cvar': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True}
 features3 = {'std': True, 'kurt':True, 'ptp':True}
 features4 = {'var': True, 'kurt': True, 'ptp': True}

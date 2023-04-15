@@ -6,7 +6,7 @@ from scipy.stats import kurtosis, variation, skew
 import joblib
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QLabel, QLineEdit, QDesktopWidget, QCheckBox
+from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QLabel, QLineEdit, QDesktopWidget, QCheckBox, QComboBox
 def down_sample(arr, rate):
     # Given a numpy array keep 1 out of every X rows
     d1 = []
@@ -75,7 +75,7 @@ def pre_process(self, data_in):
     return data_in, data_out
 
 
-def extract_features(raw_data):
+def extract_features(index, raw_data):
     features = pd.DataFrame()
     print('in features')
     x_data, _, _ = vec_seg1(raw_data[:, :, 0].T, 50)
@@ -83,30 +83,75 @@ def extract_features(raw_data):
     z_data, _, _ = vec_seg1(raw_data[:, :, 2].T, 50)
     a_data, _, _ = vec_seg1(raw_data[:, :, 3].T, 50)
 
-    # Extract the features
-    for ti, dat in zip(['x', 'y', 'z', 'a'], [x_data, y_data, z_data, a_data]):
-        features['mean' + ti] = np.mean(np.mean(dat, 1), 0)
-        features['var' + ti] = np.mean(np.var(dat, 1), 0)
-        # features['median' + ti] = np.mean(np.median(dat, 1), 0)
-        features['std' + ti] = np.mean(np.std(dat, 1), 0)
-        features['kurt' + ti] = np.mean(kurtosis(dat, axis=1, fisher=False), 0)
-        features['maxim' + ti] = np.mean(np.nanmax(dat, 1), 0)
-        # features['minim' + ti] = np.mean(np.nanmin(dat, 1), 0)
-        features['ptp' + ti] = np.mean(np.ptp(dat, 1), 0)
-        features['cvar' + ti] = np.mean(variation(dat, axis=1, nan_policy='omit'), 0)
-        # features[('ske' + ti)] = np.mean(skew(dat, axis=1, nan_policy='omit', keepdims=False), 0)
-
-    corrxy = []
-    corrxz = []
-    corryz = []
-    for a, b, c in zip(raw_data[:, :, 0], raw_data[:, :, 1], raw_data[:, :, 2]):
-        corrxy.append(np.correlate(a,b))
-        corrxz.append(np.correlate(a, c))
-        corryz.append(np.correlate(b, c))
-
-    features['corrxy'] = corrxy
-    features['corrxz'] = corrxz
-    features['corryz'] = corryz
+    if index == 0:
+        # Extract the features
+        for ti, dat in zip(['x', 'y', 'z', 'a'], [x_data, y_data, z_data, a_data]):
+            # features['mean' + ti] = np.mean(np.mean(dat, 1), 0)
+            features['var' + ti] = np.mean(np.var(dat, 1), 0)
+            # features['median' + ti] = np.mean(np.median(dat, 1), 0)
+            # features['std' + ti] = np.mean(np.std(dat, 1), 0)
+            features['kurt' + ti] = np.mean(kurtosis(dat, axis=1, fisher=False), 0)
+            # features['maxim' + ti] = np.mean(np.nanmax(dat, 1), 0)
+            # features['minim' + ti] = np.mean(np.nanmin(dat, 1), 0)
+            features['ptp' + ti] = np.mean(np.ptp(dat, 1), 0)
+            # features['cvar' + ti] = np.mean(variation(dat, axis=1, nan_policy='omit'), 0)
+            # features[('ske' + ti)] = np.mean(skew(dat, axis=1, nan_policy='omit', keepdims=False), 0)
+        # corrxy = []
+        # corrxz = []
+        # corryz = []
+        # for a, b, c in zip(raw_data[:, :, 0], raw_data[:, :, 1], raw_data[:, :, 2]):
+        #     corrxy.append(np.correlate(a,b))
+        #     corrxz.append(np.correlate(a, c))
+        #     corryz.append(np.correlate(b, c))
+        # features['corrxy'] = corrxy
+        # features['corrxz'] = corrxz
+        # features['corryz'] = corryz
+    elif index == 1:
+        # Extract the features
+        for ti, dat in zip(['x', 'y', 'z', 'a'], [x_data, y_data, z_data, a_data]):
+            features['mean' + ti] = np.mean(np.mean(dat, 1), 0)
+            features['var' + ti] = np.mean(np.var(dat, 1), 0)
+            # features['median' + ti] = np.mean(np.median(dat, 1), 0)
+            features['std' + ti] = np.mean(np.std(dat, 1), 0)
+            features['kurt' + ti] = np.mean(kurtosis(dat, axis=1, fisher=False), 0)
+            features['maxim' + ti] = np.mean(np.nanmax(dat, 1), 0)
+            # features['minim' + ti] = np.mean(np.nanmin(dat, 1), 0)
+            features['ptp' + ti] = np.mean(np.ptp(dat, 1), 0)
+            # features['cvar' + ti] = np.mean(variation(dat, axis=1, nan_policy='omit'), 0)
+            # features[('ske' + ti)] = np.mean(skew(dat, axis=1, nan_policy='omit', keepdims=False), 0)
+        # corrxy = []
+        # corrxz = []
+        # corryz = []
+        # for a, b, c in zip(raw_data[:, :, 0], raw_data[:, :, 1], raw_data[:, :, 2]):
+        #     corrxy.append(np.correlate(a,b))
+        #     corrxz.append(np.correlate(a, c))
+        #     corryz.append(np.correlate(b, c))
+        # features['corrxy'] = corrxy
+        # features['corrxz'] = corrxz
+        # features['corryz'] = corryz
+    elif index == 2:
+        # Extract the features
+        for ti, dat in zip(['x', 'y', 'z', 'a'], [x_data, y_data, z_data, a_data]):
+            features['mean' + ti] = np.mean(np.mean(dat, 1), 0)
+            features['var' + ti] = np.mean(np.var(dat, 1), 0)
+            # features['median' + ti] = np.mean(np.median(dat, 1), 0)
+            features['std' + ti] = np.mean(np.std(dat, 1), 0)
+            features['kurt' + ti] = np.mean(kurtosis(dat, axis=1, fisher=False), 0)
+            features['maxim' + ti] = np.mean(np.nanmax(dat, 1), 0)
+            # features['minim' + ti] = np.mean(np.nanmin(dat, 1), 0)
+            features['ptp' + ti] = np.mean(np.ptp(dat, 1), 0)
+            features['cvar' + ti] = np.mean(variation(dat, axis=1, nan_policy='omit'), 0)
+            # features[('ske' + ti)] = np.mean(skew(dat, axis=1, nan_policy='omit', keepdims=False), 0)
+        corrxy = []
+        corrxz = []
+        corryz = []
+        for a, b, c in zip(raw_data[:, :, 0], raw_data[:, :, 1], raw_data[:, :, 2]):
+            corrxy.append(np.correlate(a,b))
+            corrxz.append(np.correlate(a, c))
+            corryz.append(np.correlate(b, c))
+        features['corrxy'] = corrxy
+        features['corrxz'] = corrxz
+        features['corryz'] = corryz
 
 
     print(features.columns)
@@ -170,6 +215,14 @@ class MainWindow(QMainWindow):
         self.checkbox.stateChanged.connect(self.checkbox_changed)
         self.flag = False;
 
+        # Set up the combo box
+        self.combo_box = QComboBox(self)
+        self.combo_box.move(150, 100)
+        self.combo_box.resize(100, 30)
+        self.combo_box.addItems(['3 Features', '6 Features', '8 Features'])
+        self.combo_box.currentIndexChanged.connect(self.combo_box_changed)
+        self.index = 2;
+
         # Set up the status label
         self.status_label = QLabel("", self)
         self.status_label.move(20, 190)
@@ -178,12 +231,22 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("background-color: white; color: black; border: 1px solid black;")
 
         # Set up the logistic regression model
-        self.model = joblib.load("l_reg.joblib")
+        self.model = joblib.load("l_reg_8.joblib")
     def checkbox_changed(self, state):
         if state == Qt.Checked:
             self.flag = True
         else:
             self.flag = False
+
+    def combo_box_changed(self, index):
+        self.index = index
+        if self.index == 0:
+            self.model = joblib.load("l_reg_3.joblib")
+        elif self.index == 1:
+            self.model = joblib.load("l_reg_6.joblib")
+        elif self.index == 2:
+            self.model = joblib.load("l_reg_8.joblib")
+
     def browse_input_file(self):
         # Open a file dialog to select the input file
         file_dialog = QFileDialog()
@@ -207,7 +270,7 @@ class MainWindow(QMainWindow):
                 input_data,  sanitized_data = pre_process(self, input_data)
                 print("Pre-processing completed successfully.")
 
-                feature_data = extract_features(sanitized_data)
+                feature_data = extract_features(self.index, sanitized_data)
                 print("Features extracted successfully.")
 
                 # Apply the logistic regression model to the input data
@@ -263,7 +326,6 @@ class MainWindow(QMainWindow):
                 ax[1].set_title("Action Prediction vs Time")
                 ax[1].set_yticks([0,1])
                 ax[1].set_yticklabels(['Walking', 'Jumping'])
-
 
                 fig.set_layout_engine(layout='tight')
                 plt.show()

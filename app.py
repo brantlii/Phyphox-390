@@ -2,7 +2,7 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-from scipy.stats import kurtosis
+from scipy.stats import kurtosis, variation, skew
 import joblib
 import matplotlib.pyplot as plt
 from PyQt5.QtCore import Qt
@@ -89,13 +89,14 @@ def extract_features(raw_data):
     for ti, dat in zip(['x', 'y', 'z', 'a'], [x_data, y_data, z_data, a_data]):
         features['mean' + ti] = np.mean(np.mean(dat, 1), 0)
         features['var' + ti] = np.mean(np.var(dat, 1), 0)
-        features['median' + ti] = np.mean(np.median(dat, 1), 0)
+        #features['median' + ti] = np.mean(np.median(dat, 1), 0)
         features['std' + ti] = np.mean(np.std(dat, 1), 0)
         features['kurt' + ti] = np.mean(kurtosis(dat, axis=1, fisher=False), 0)
         features['maxim' + ti] = np.mean(np.nanmax(dat, 1), 0)
-        features['minim' + ti] = np.mean(np.nanmin(dat, 1), 0)
+        # features['minim' + ti] = np.mean(np.nanmin(dat, 1), 0)
         features['ptp' + ti] = np.mean(np.ptp(dat, 1), 0)
         features['cvar' + ti] = np.mean(variation(dat, axis=1, nan_policy='omit'), 0)
+        # features[('ske' + ti)] = np.mean(skew(dat, axis=1, nan_policy='omit', keepdims=False), 0)
 
     corrxy = []
     corrxz = []
@@ -180,7 +181,7 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("background-color: white; color: black; border: 1px solid black;")
 
         # Set up the logistic regression model
-        self.model = joblib.load("10_feature.joblib")
+        self.model = joblib.load("8_feature.joblib")
     def checkbox_changed(self, state):
         if state == Qt.Checked:
             self.flag = True
@@ -208,7 +209,7 @@ class MainWindow(QMainWindow):
                 input_data = pd.read_csv(input_file_path)
                 print("Input file read successfully.")
 
-                input_data,  sanitized_data = pre_process(input_data)
+                input_data,  sanitized_data = pre_process(self, input_data)
                 print("Pre-processing completed successfully.")
 
                 feature_data = extract_features(sanitized_data)
@@ -263,6 +264,12 @@ class MainWindow(QMainWindow):
                 ax[1].set_ylabel("Action")
                 ax[1].set_title("Action Prediction vs Time")
 
+                ax[1].set_ylabel("Action")
+                ax[1].set_title("Action Prediction vs Time")
+                ax[1].set_yticks([0,1])  # Add this
+                ax[1].set_yticklabels(['Walking', 'Jumping'])
+
+
                 fig.set_layout_engine(layout='tight')
                 plt.show()
             except Exception as e:
@@ -276,6 +283,7 @@ if __name__ == "__main__":
     font = app.font()
     font.setFamily("Helvetica")
     app.setFont(font)
+    app.setStyle('Fusion')  # Add this
 
     # Create and show the main window
     window = MainWindow()
@@ -283,4 +291,3 @@ if __name__ == "__main__":
 
     # Start the event loop
     sys.exit(app.exec_())
-

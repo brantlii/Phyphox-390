@@ -12,7 +12,8 @@ from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from scipy.stats import kurtosis, variation
+from scipy.stats import kurtosis, variation, skew
+
 from itertools import combinations, chain
 
 
@@ -427,7 +428,7 @@ def accel_fft_plots(root_dir, save=None):
 
 
 def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median=False, std=False, cov=False, kurt=False,
-               maxim=False, minim=False, ptp=False, cvar=False, corr=False):
+               maxim=False, minim=False, ptp=False, cvar=False, corr=False, ske=False):
     input_train = np.array(root_dir['/dataset/train/input_train'])
     input_test = np.array(root_dir['/dataset/test/input_test'])
     output_train = np.array(root_dir['/dataset/train/output_train'])
@@ -473,6 +474,10 @@ def test_train(root_dir, save=None, verbose=False, mean=False, var=False, median
         if cvar:
             features_train[('cvar' + ti)] = np.mean(variation(vec_seg1(input_train[:, :, i].T, 50), axis=1, nan_policy='omit'), 0)
             features_test[('cvar' + ti)] = np.mean(variation(vec_seg1(input_test[:, :, i].T, 50), axis=1, nan_policy='omit'), 0)
+
+        if ske:
+            features_train[('ske' + ti)] = np.mean(skew(vec_seg1(input_train[:, :, i].T, 50), axis=1, nan_policy='omit', keepdims=False), 0)
+            features_test[('ske' + ti)] = np.mean(skew(vec_seg1(input_test[:, :, i].T, 50), axis=1, nan_policy='omit', keepdims=False), 0)
 
     if corr:
         corrxy = []
@@ -533,9 +538,10 @@ features1 = {'std': True, 'mean': True, 'var': True,  'median': False, 'kurt': T
 features2 = {'cvar': True,  'median': False, 'kurt': True, 'maxim': True, 'minim': False, 'ptp': True}
 features3 = {'std': True, 'kurt':True, 'ptp':True}
 features4 = {'var': True, 'kurt': True, 'ptp': True}
-features5 = {'std': True, 'mean': True, 'var': True,  'median': True,
-            'kurt': True, 'maxim': True, 'minim': True, 'ptp': True,
-            'cvar': True, 'corr': True}
+
+features5 = {'std': True, 'mean': True, 'var': True,  'median': False,
+            'kurt': True, 'maxim': True, 'minim': False, 'ptp': True,
+            'cvar': True, 'corr': True, 'ske': False}
 
 
 create_hdf5(p)
@@ -557,7 +563,8 @@ y_clf_prob = clf.predict_proba(x_test)
 acc = accuracy_score(y_test, y_pred)
 print('Model Accuracy: ', acc)
 
-joblib.dump(clf, '10_feature.joblib')
+
+# joblib.dump(clf, '8_feature.joblib')
 # joblib.dump(clf, 'var_kurt_ptp.joblib')
 # joblib.dump(clf, 'l_reg.joblib')
 

@@ -557,7 +557,7 @@ y_clf_prob = clf.predict_proba(x_test)
 acc = accuracy_score(y_test, y_pred)
 print('Model Accuracy: ', acc)
 
-# joblib.dump(clf, '10_feature.joblib')
+joblib.dump(clf, '10_feature.joblib')
 # joblib.dump(clf, 'var_kurt_ptp.joblib')
 # joblib.dump(clf, 'l_reg.joblib')
 

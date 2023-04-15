@@ -2,12 +2,11 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-from scipy.stats import kurtosis, variation
+from scipy.stats import kurtosis
 import joblib
 import matplotlib.pyplot as plt
-from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QLabel, QLineEdit, QDesktopWidget
-
-
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QLabel, QLineEdit, QDesktopWidget, QCheckBox
 def down_sample(arr, rate):
     # Given a numpy array keep 1 out of every X rows
     d1 = []
@@ -44,8 +43,10 @@ def vec_seg1(array, sub_window_size, overlap: float = 0, clearing_time_index=Non
     return array[sub_windows], lost, last_valid_index
 
 
-def pre_process(data_in):
-    # data_in = down_sample(data_in, 5)
+def pre_process(self, data_in):
+    if self.flag:
+        data_in = down_sample(data_in, 5)
+        print("Downsampled")
     # Convolution will reduce rows by (window_Size - 1)
     rows = data_in.shape[0] - 10 + 1
     cols = data_in.shape[1]
@@ -165,16 +166,26 @@ class MainWindow(QMainWindow):
         self.plot_button.move(350, 140)
         self.plot_button.clicked.connect(self.plot_data)
 
+        # Set up check box
+        self.checkbox = QCheckBox("Downsample", self)
+        self.checkbox.move(670, 100)
+        self.checkbox.stateChanged.connect(self.checkbox_changed)
+        self.flag = False;
+
         # Set up the status label
         self.status_label = QLabel("", self)
         self.status_label.move(20, 190)
-        self.status_label.resize(760, 90)
+        self.status_label.resize(760, 40)
         self.status_label.setWordWrap(True)
         self.status_label.setStyleSheet("background-color: white; color: black; border: 1px solid black;")
 
         # Set up the logistic regression model
         self.model = joblib.load("10_feature.joblib")
-
+    def checkbox_changed(self, state):
+        if state == Qt.Checked:
+            self.flag = True
+        else:
+            self.flag = False
     def browse_input_file(self):
         # Open a file dialog to select the input file
         file_dialog = QFileDialog()
